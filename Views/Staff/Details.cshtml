@@ -1,0 +1,114 @@
+@model InfoPoint.Models.Staff
+@{
+    ViewData["Title"] = $"Staff Details - {Model.FullName}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Dashboard">Home</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Staff" asp-action="Index">Staff Directory</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.FullName</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="bi bi-person-circle"></i> @Model.FullName</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Contact Information</h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Email:</strong></td>
+                                <td><a href="mailto:@Model.Email">@Model.Email</a></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Staff Reference:</strong></td>
+                                <td>@Model.StaffReference</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Position Details</h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Job Title:</strong></td>
+                                <td>@Model.JobTitle</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Department:</strong></td>
+                                <td>@Model.Area</td>
+                            </tr>
+                            @if (!string.IsNullOrEmpty(Model.ManagerEmail))
+                            {
+                                <tr>
+                                    <td><strong>Manager:</strong></td>
+                                    <td><a href="mailto:@Model.ManagerEmail">@Model.ManagerEmail</a></td>
+                                </tr>
+                            }
+                            <tr>
+                                <td><strong>Status:</strong></td>
+                                <td>
+                                    @if (Model.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-calendar-plus"></i> Created: @Model.CreatedDate.ToString("dd/MM/yyyy")
+                    @if (Model.LastUpdated.HasValue)
+                    {
+                        <span class="ms-3">
+                            <i class="bi bi-calendar-check"></i> Last Updated: @Model.LastUpdated.Value.ToString("dd/MM/yyyy")
+                        </span>
+                    }
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="mailto:@Model.Email" class="btn btn-primary">
+                        <i class="bi bi-envelope"></i> Send Email
+                    </a>
+                    <a asp-controller="Staff" asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Directory
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ManagerEmail))
+        {
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6>Reporting Structure</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Reports to:</strong></p>
+                    <p><a href="mailto:@Model.ManagerEmail">@Model.ManagerEmail</a></p>
+                </div>
+            </div>
+        }
+    </div>
+</div>

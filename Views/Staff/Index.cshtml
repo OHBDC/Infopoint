@@ -1,0 +1,102 @@
+@model IEnumerable<InfoPoint.Models.Staff>
+@{
+    ViewData["Title"] = "Staff Directory";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Dashboard">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Staff Directory</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Staff Directory</h1>
+    <div>
+        <span class="badge bg-primary">@Model.Count() Active Staff</span>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <input type="text" id="searchInput" class="form-control" placeholder="Search staff...">
+    </div>
+    <div class="col-md-4">
+        <select id="areaFilter" class="form-select">
+            <option value="">All Areas</option>
+            @foreach(var area in Model.Select(s => s.Area).Distinct().OrderBy(a => a))
+            {
+                <option value="@area">@area</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="row" id="staffCards">
+    @foreach (var staff in Model)
+    {
+        <div class="col-md-6 col-lg-4 mb-3 staff-card" data-area="@staff.Area">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">@staff.FullName</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">@staff.JobTitle</h6>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            <i class="bi bi-building"></i> @staff.Area<br>
+                            <i class="bi bi-envelope"></i> @staff.Email<br>
+                            <i class="bi bi-person-badge"></i> @staff.StaffReference
+                            @if (!string.IsNullOrEmpty(staff.ManagerEmail))
+                            {
+                                <text><br><i class="bi bi-person-up"></i> Manager: @staff.ManagerEmail</text>
+                            }
+                        </small>
+                    </p>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">
+                        <a asp-action="Details" asp-route-id="@staff.Id" class="btn btn-sm btn-outline-primary">
+                            View Details
+                        </a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Search functionality
+            $('#searchInput').on('keyup', function() {
+                var searchTerm = $(this).val().toLowerCase();
+                filterStaff();
+            });
+
+            // Area filter
+            $('#areaFilter').on('change', function() {
+                filterStaff();
+            });
+
+            function filterStaff() {
+                var searchTerm = $('#searchInput').val().toLowerCase();
+                var selectedArea = $('#areaFilter').val();
+
+                $('.staff-card').each(function() {
+                    var $card = $(this);
+                    var cardText = $card.text().toLowerCase();
+                    var cardArea = $card.data('area');
+                    
+                    var matchesSearch = searchTerm === '' || cardText.includes(searchTerm);
+                    var matchesArea = selectedArea === '' || cardArea === selectedArea;
+                    
+                    if (matchesSearch && matchesArea) {
+                        $card.show();
+                    } else {
+                        $card.hide();
+                    }
+                });
+            }
+        });
+    </script>
+}
