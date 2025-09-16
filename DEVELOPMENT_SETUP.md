@@ -69,16 +69,7 @@ git branch -a
 
 ## Developer Assignments
 
-### Developer 1 (You) - Learning Walks
-- **Branch**: `feature/learning-walks`
-- **Area**: `Areas/LearningWalks/`
-- **Responsibilities**:
-  - Learning walk scheduling
-  - Observation forms
-  - Reporting features
-  - Learning walks dashboard
-
-### Developer 2 - PDRs
+### Developer 1 (You) - PDRs
 - **Branch**: `feature/pdrs`
 - **Area**: `Areas/PDRs/`
 - **Responsibilities**:
@@ -87,28 +78,18 @@ git branch -a
   - Performance tracking
   - PDR reports
 
+### Developer 2 (Your Friend) - Learning Walks
+- **Branch**: `feature/learning-walks`
+- **Area**: `Areas/LearningWalks/`
+- **Responsibilities**:
+  - Learning walk scheduling
+  - Observation forms
+  - Reporting features
+  - Learning walks dashboard
+
 ## Daily Development Workflow
 
-### For Developer 1 (Learning Walks):
-
-```bash
-# 1. Switch to your feature branch
-git checkout feature/learning-walks
-
-# 2. Pull latest changes from dev branch
-git pull origin dev
-
-# 3. Work on your features in Areas/LearningWalks/
-
-# 4. Commit your changes
-git add .
-git commit -m "Add learning walk scheduling feature"
-
-# 5. Push to your feature branch
-git push origin feature/learning-walks
-```
-
-### For Developer 2 (PDRs):
+### For Developer 1 (PDRs - You):
 
 ```bash
 # 1. Switch to your feature branch
@@ -125,6 +106,25 @@ git commit -m "Add PDR objective setting feature"
 
 # 5. Push to your feature branch
 git push origin feature/pdrs
+```
+
+### For Developer 2 (Learning Walks - Your Friend):
+
+```bash
+# 1. Switch to your feature branch
+git checkout feature/learning-walks
+
+# 2. Pull latest changes from dev branch
+git pull origin dev
+
+# 3. Work on your features in Areas/LearningWalks/
+
+# 4. Commit your changes
+git add .
+git commit -m "Add learning walk scheduling feature"
+
+# 5. Push to your feature branch
+git push origin feature/learning-walks
 ```
 
 ## VS Code Git Integration

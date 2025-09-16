@@ -11,17 +11,7 @@ main (🔒 protected)
 
 ## 🚀 Daily Workflow
 
-### Developer 1 (Learning Walks)
-```bash
-git checkout feature/learning-walks
-git pull origin dev
-# Work in Areas/LearningWalks/
-git add .
-git commit -m "Your changes"
-git push origin feature/learning-walks
-```
-
-### Developer 2 (PDRs)
+### Developer 1 (PDRs - You)
 ```bash
 git checkout feature/pdrs  
 git pull origin dev
@@ -29,6 +19,16 @@ git pull origin dev
 git add .
 git commit -m "Your changes"
 git push origin feature/pdrs
+```
+
+### Developer 2 (Learning Walks - Your Friend)
+```bash
+git checkout feature/learning-walks
+git pull origin dev
+# Work in Areas/LearningWalks/
+git add .
+git commit -m "Your changes"
+git push origin feature/learning-walks
 ```
 
 ## 📋 VS Code Quick Actions
@@ -118,8 +118,8 @@ git checkout -- .
 
 | Developer | Branch | Focus Area | Files |
 |-----------|--------|------------|-------|
-| Developer 1 | `feature/learning-walks` | Learning Walks | `Areas/LearningWalks/` |
-| Developer 2 | `feature/pdrs` | PDRs | `Areas/PDRs/` |
+| Developer 1 (You) | `feature/pdrs` | PDRs | `Areas/PDRs/` |
+| Developer 2 (Friend) | `feature/learning-walks` | Learning Walks | `Areas/LearningWalks/` |
 
 ## 🔧 Troubleshooting
 
