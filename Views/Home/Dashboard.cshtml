@@ -1,0 +1,69 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="container">
+    <h1 class="display-4 mb-4">Welcome to InfoPoint</h1>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">
+                        <i class="bi bi-clipboard-check"></i> Learning Walks
+                    </h5>
+                    <p class="card-text flex-grow-1">
+                        Manage and track learning walks across the institution. Schedule observations, 
+                        record findings, and generate comprehensive reports.
+                    </p>
+                    <a asp-area="LearningWalks" asp-controller="LearningWalks" asp-action="Index" 
+                       class="btn btn-primary btn-block">
+                        Access Learning Walks
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">
+                        <i class="bi bi-person-badge"></i> PDRs
+                    </h5>
+                    <p class="card-text flex-grow-1">
+                        Performance Development Reviews management. Set objectives, track progress, 
+                        and maintain comprehensive performance records.
+                    </p>
+                    <a asp-area="PDRs" asp-controller="PDRs" asp-action="Index" 
+                       class="btn btn-primary btn-block">
+                        Access PDRs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Stats</h5>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h3 class="text-primary">0</h3>
+                            <p class="text-muted">Upcoming Learning Walks</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h3 class="text-success">0</h3>
+                            <p class="text-muted">PDRs This Month</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h3 class="text-info">0</h3>
+                            <p class="text-muted">Pending Actions</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

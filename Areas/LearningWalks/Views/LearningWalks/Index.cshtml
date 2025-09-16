@@ -1,0 +1,33 @@
+@{
+    ViewData["Title"] = "Learning Walks";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Dashboard" asp-area="">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Learning Walks</li>
+    </ol>
+</nav>
+
+<div class="container">
+    <h1>Learning Walks Section</h1>
+    <p class="lead">Welcome to the Learning Walks management area.</p>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Learning Walks Features</h5>
+                    <p class="card-text">This section will contain features for managing learning walks, including:</p>
+                    <ul>
+                        <li>Schedule learning walks</li>
+                        <li>Record observations</li>
+                        <li>Generate reports</li>
+                        <li>Track progress</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
