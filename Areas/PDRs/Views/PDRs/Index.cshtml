@@ -43,6 +43,17 @@
     <h1>Performance Development Reviews</h1>
     <p class="lead">Welcome @Model.Staff.FullName, manage your PDRs and review your team's performance.</p>
     
+    @if (User.Identity.Name == "oliver.hill@g.bdc.ac.uk")
+    {
+        <div class="alert alert-warning mb-4">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Test Mode:</strong> You can reset all PDR data to test values.
+            <a href="@Url.Action("ResetTestPDRs", "PDRs", new { area = "PDRs" })" class="btn btn-danger btn-sm ms-3">
+                <i class="bi bi-arrow-clockwise me-1"></i>Reset PDR Data
+            </a>
+        </div>
+    }
+    
     @{
         bool hasManagerResponsibilities = Model.ManagerPDRs.Any();
     }
@@ -92,9 +103,13 @@
                                                     {
                                                         <small class="d-block text-primary fw-medium">@pdr.Period</small>
                                                     }
-                                                    else
+                                                    else if (pdr.Month > 0 && pdr.Month <= 12)
                                                     {
                                                         <small class="d-block text-muted">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(pdr.Month)</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="d-block text-muted">—</small>
                                                     }
                                                 </div>
                                             </td>
@@ -228,9 +243,13 @@
                                                     {
                                                         <small class="d-block text-primary fw-medium">@pdr.Period</small>
                                                     }
-                                                    else
+                                                    else if (pdr.Month > 0 && pdr.Month <= 12)
                                                     {
                                                         <small class="d-block text-muted">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(pdr.Month)</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="d-block text-muted">—</small>
                                                     }
                                                 </div>
                                             </td>

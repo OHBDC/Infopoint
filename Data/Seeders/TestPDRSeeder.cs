@@ -93,6 +93,7 @@ namespace InfoPoint.Data.Seeders
             {
                 StaffReference = staffReference,
                 Year = year,
+                Month = DateTime.Now.Month, // Set current month
                 Status = status,
                 AssignedDate = DateTime.UtcNow.AddDays(-30),
                 DueDate = DateTime.UtcNow.AddDays(30),

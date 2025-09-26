@@ -13,45 +13,28 @@
 </nav>
 
 <div class="container">
-    <h1>PDR Collaborative Review</h1>
-    <div class="row">
-        <div class="col-md-8">
-            <div class="alert alert-info">
-                <h5><i class="bi bi-person-circle me-2"></i>@Model.PDR.Staff.FullName</h5>
-                <p class="mb-0">
-                    <strong>Year:</strong> @Model.PDR.Year 
-                    @if (!string.IsNullOrEmpty(Model.PDR.Period))
-                    {
-                        <span>(@Model.PDR.Period)</span>
-                    }
-                    else
-                    {
-                        <span>(@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(Model.PDR.Month))</span>
-                    }
-                    | <strong>Role:</strong> @Model.PDR.Staff.JobTitle | 
-                    <strong>Area:</strong> @Model.PDR.Staff.Area
-                </p>
-            </div>
+    <!-- Subtle progress indicator at top -->
+    <div class="progress-indicator-container">
+        <div class="progress-indicator">
+            <div class="progress-bar-subtle" id="progressBar" style="width: 0%"></div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h6>Progress</h6>
-                    <div class="progress mb-2">
-                        <div class="progress-bar" role="progressbar" style="width: 0%" id="progressBar">0%</div>
-                    </div>
-                    <small class="text-muted" id="progressText">Question 1 of @Model.Comparisons.Count()</small>
-                </div>
+        <div class="progress-info">
+            <span class="progress-text" id="progressText">Question 1 of @Model.Comparisons.Count()</span>
+            <div class="pdr-info">
+                <span class="staff-name">@Model.PDR.Staff.FullName</span>
+                <span class="pdr-details">@Model.PDR.Year Collaboration</span>
             </div>
         </div>
     </div>
+    
+    <h1 class="page-title">PDR Collaboration</h1>
 
     @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
     {
         <div class="alert alert-success mb-4">
             <h6><i class="bi bi-people me-2"></i>Collaborative Session</h6>
             <p class="mb-0">
-                Review both responses below and work together to create an agreed-upon response.
+                Review the responses below. Click on rows with differences to create collaborative responses.
             </p>
         </div>
     }
@@ -60,447 +43,448 @@
         @Html.AntiForgeryToken()
         <input type="hidden" id="pdrId" value="@Model.PDR.Id" />
         
-        <div class="question-carousel">
+        <!-- Comparison Table -->
+        <div class="comparison-table-container">
             @{
                 var allComparisons = Model.Comparisons.OrderBy(c => c.Question.Category).ThenBy(c => c.Question.Order).ToList();
+                string currentCategory = "";
             }
             
-            @for (int index = 0; index < allComparisons.Count; index++)
-            {
-                var comparison = allComparisons[index];
-                var isFirstInCategory = index == 0 || allComparisons[index - 1].Question.Category != comparison.Question.Category;
-                
-                <div class="question-slide" data-question-index="@index" data-question-id="@comparison.QuestionId" data-category="@comparison.Question.Category" style="display: @(index == 0 ? "block" : "none")">
-                    @if (isFirstInCategory)
-                    {
-                        <div class="category-intro">
-                            <h2 class="category-title">@comparison.Question.Category</h2>
-                            <div class="category-divider"></div>
-                        </div>
-                    }
-                    
-                    <div class="question-content">
-                        <h3 class="question-text">@comparison.Question.StaffQuestionText</h3>
-                        @if (!string.IsNullOrEmpty(comparison.Question.Description))
+            <div class="table-responsive">
+                <table class="table comparison-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Question</th>
+                            <th style="width: 25%;">Staff Response</th>
+                            <th style="width: 25%;">Manager Response</th>
+                            <th style="width: 25%;">Collaborative Response</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var comparison in allComparisons)
                         {
-                            <p class="question-description">@comparison.Question.Description</p>
-                        }
-                        
-                        <!-- Side-by-Side Responses -->
-                        <div class="response-comparison">
-                            <div class="row">
-                                <!-- Staff Response -->
-                                <div class="col-md-6">
-                                    <div class="response-card staff-response">
-                                        <div class="response-header">
-                                            <i class="bi bi-person-circle me-2"></i>Staff Response
-                                        </div>
-                                        <div class="response-body">
-                                            <div class="response-text">
-                                                @if (!string.IsNullOrEmpty(comparison.StaffResponse))
-                                                {
-                                                    @comparison.StaffResponse
-                                                }
-                                                else
-                                                {
-                                                    <em class="text-muted">No response provided</em>
-                                                }
-                                            </div>
-                                            @if (comparison.StaffRating.HasValue)
-                                            {
-                                                <div class="response-rating">
-                                                    <div class="star-display">
-                                                        @for (int i = 1; i <= 5; i++)
-                                                        {
-                                                            <span class="star-small @(i <= comparison.StaffRating.Value ? "active" : "")">★</span>
-                                                        }
-                                                    </div>
-                                                    <span class="rating-label">@comparison.StaffRating.Value/5</span>
-                                                </div>
-                                            }
-                                        </div>
+                            @if (currentCategory != comparison.Question.Category)
+                            {
+                                currentCategory = comparison.Question.Category;
+                                <tr class="category-row">
+                                    <td colspan="4" class="category-header">
+                                        <h5 class="category-title-table">
+                                            <i class="bi bi-folder2-open me-2"></i>@currentCategory
+                                        </h5>
+                                    </td>
+                                </tr>
+                            }
+                            
+                            // Parse staff response
+                            var staffPillMatch = System.Text.RegularExpressions.Regex.Match(comparison.StaffResponse ?? "", @"Selected feedback: (.*?)(?:\n|$)");
+                            var staffCommentMatch = System.Text.RegularExpressions.Regex.Match(comparison.StaffResponse ?? "", @"Additional comment: (.*)");
+                            string staffPillText = staffPillMatch.Success ? staffPillMatch.Groups[1].Value : "";
+                            string staffCommentText = staffCommentMatch.Success ? staffCommentMatch.Groups[1].Value : "";
+                            
+                            // Parse manager response  
+                            var managerPillMatch = System.Text.RegularExpressions.Regex.Match(comparison.ManagerResponse ?? "", @"Selected feedback: (.*?)(?:\n|$)");
+                            var managerCommentMatch = System.Text.RegularExpressions.Regex.Match(comparison.ManagerResponse ?? "", @"Additional comment: (.*)");
+                            string managerPillText = managerPillMatch.Success ? managerPillMatch.Groups[1].Value : "";
+                            string managerCommentText = managerCommentMatch.Success ? managerCommentMatch.Groups[1].Value : "";
+                            
+                            // Check for differences
+                            bool hasDifferences = (comparison.StaffRating ?? 0) != (comparison.ManagerRating ?? 0) || 
+                                                !string.Equals(staffPillText.Trim(), managerPillText.Trim(), StringComparison.OrdinalIgnoreCase);
+                                                
+                            bool hasCollaborativeResponse = comparison.CollaborativeRating.HasValue || !string.IsNullOrEmpty(comparison.CollaborativeResponse);
+                            
+                            string rowClass = "";
+                            if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
+                            {
+                                if (hasCollaborativeResponse)
+                                    rowClass = "row-completed";
+                                else if (hasDifferences)
+                                    rowClass = "row-differences";
+                                else
+                                    rowClass = "row-agreement";
+                            }
+                            
+                            <tr class="comparison-row @rowClass" data-question-id="@comparison.QuestionId" data-has-differences="@hasDifferences.ToString().ToLower()">
+                                <!-- Question Column -->
+                                <td class="question-cell">
+                                    <div class="question-content">
+                                        <strong>@comparison.Question.StaffQuestionText</strong>
+                                        @if (!string.IsNullOrEmpty(comparison.Question.Description))
+                                        {
+                                            <small class="text-muted d-block mt-1">@comparison.Question.Description</small>
+                                        }
                                     </div>
-                                </div>
+                                </td>
                                 
-                                <!-- Manager Response -->
-                                <div class="col-md-6">
-                                    <div class="response-card manager-response">
-                                        <div class="response-header">
-                                            <i class="bi bi-person-badge me-2"></i>Manager Response
-                                        </div>
-                                        <div class="response-body">
-                                            <div class="response-text">
-                                                @if (!string.IsNullOrEmpty(comparison.ManagerResponse))
-                                                {
-                                                    @comparison.ManagerResponse
-                                                }
-                                                else
-                                                {
-                                                    <em class="text-muted">No response provided</em>
-                                                }
-                                            </div>
-                                            @if (comparison.ManagerRating.HasValue)
-                                            {
-                                                <div class="response-rating">
-                                                    <div class="star-display">
-                                                        @for (int i = 1; i <= 5; i++)
-                                                        {
-                                                            <span class="star-small @(i <= comparison.ManagerRating.Value ? "active" : "")">★</span>
-                                                        }
-                                                    </div>
-                                                    <span class="rating-label">@comparison.ManagerRating.Value/5</span>
-                                                </div>
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
-                        {
-                            <!-- Collaborative Response Section -->
-                            <div class="collaborative-section">
-                                <h4 class="section-title">
-                                    <i class="bi bi-people me-2"></i>Collaborative Response
-                                </h4>
-                                <p class="section-subtitle">Work together to create an agreed response based on the individual responses above</p>
-                                
-                                <div class="rating-section">
-                                    <label class="form-label">Agreed Rating</label>
-                                    <div class="star-rating-large" data-question-id="@comparison.QuestionId" data-rating="@(comparison.CollaborativeRating ?? 0)">
-                                        <span class="star-large" data-value="1">★</span>
-                                        <span class="star-large" data-value="2">★</span>
-                                        <span class="star-large" data-value="3">★</span>
-                                        <span class="star-large" data-value="4">★</span>
-                                        <span class="star-large" data-value="5">★</span>
-                                    </div>
-                                    <p class="rating-text-large"></p>
-                                </div>
-                                
-                                <div class="response-container-centered" data-question-id="@comparison.QuestionId" style="display: @((comparison.CollaborativeRating ?? 0) > 0 ? "block" : "none")">
-                                    <label class="form-label">Collaborative Response</label>
-                                    <textarea class="form-control response-textarea-large collaborative-response" 
-                                              rows="6" 
-                                              placeholder="Enter the agreed-upon response..."
-                                              data-question-id="@comparison.QuestionId">@(comparison.CollaborativeResponse ?? "")</textarea>
-                                    <div class="save-indicator" data-question-id="@comparison.QuestionId"></div>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            <!-- View-only collaborative response for completed PDRs -->
-                            <div class="collaborative-section completed">
-                                <h4 class="section-title">
-                                    <i class="bi bi-check-circle me-2"></i>Final Agreed Response
-                                </h4>
-                                
-                                <div class="final-response">
-                                    @if (comparison.CollaborativeRating.HasValue)
-                                    {
-                                        <div class="final-rating">
-                                            <div class="star-display">
+                                <!-- Staff Response Column -->
+                                <td class="response-cell staff-cell">
+                                    <div class="response-content-table">
+                                        @if (comparison.StaffRating.HasValue)
+                                        {
+                                            <div class="rating-display">
                                                 @for (int i = 1; i <= 5; i++)
                                                 {
-                                                    <span class="star-small @(i <= comparison.CollaborativeRating.Value ? "active" : "")">★</span>
+                                                    <span class="star-tiny @(i <= comparison.StaffRating.Value ? "active" : "")">★</span>
+                                                }
+                                                <span class="rating-text">(@comparison.StaffRating.Value/5)</span>
+                                            </div>
+                                        }
+                                        
+                                        @if (!string.IsNullOrEmpty(staffPillText))
+                                        {
+                                            <div class="pills-compact">
+                                                @foreach (string pill in staffPillText.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)))
+                                                {
+                                                    <span class="pill-compact staff-pill">@pill</span>
                                                 }
                                             </div>
-                                            <span class="rating-label">@comparison.CollaborativeRating.Value/5</span>
-                                        </div>
-                                    }
-                                    
-                                    <div class="final-text">
-                                        @if (!string.IsNullOrEmpty(comparison.CollaborativeResponse))
+                                        }
+                                        
+                                        @if (!string.IsNullOrEmpty(staffCommentText))
                                         {
-                                            @comparison.CollaborativeResponse
+                                            <div class="comment-compact">
+                                                <em>@staffCommentText</em>
+                                            </div>
+                                        }
+                                        
+                                        @if (string.IsNullOrEmpty(comparison.StaffResponse))
+                                        {
+                                            <em class="text-muted">No response</em>
+                                        }
+                                        else if (string.IsNullOrEmpty(staffPillText) && string.IsNullOrEmpty(staffCommentText))
+                                        {
+                                            <div class="legacy-response">@comparison.StaffResponse</div>
+                                        }
+                                    </div>
+                                </td>
+                                
+                                <!-- Manager Response Column -->
+                                <td class="response-cell manager-cell">
+                                    <div class="response-content-table">
+                                        @if (comparison.ManagerRating.HasValue)
+                                        {
+                                            <div class="rating-display">
+                                                @for (int i = 1; i <= 5; i++)
+                                                {
+                                                    <span class="star-tiny @(i <= comparison.ManagerRating.Value ? "active" : "")">★</span>
+                                                }
+                                                <span class="rating-text">(@comparison.ManagerRating.Value/5)</span>
+                                            </div>
+                                        }
+                                        
+                                        @if (!string.IsNullOrEmpty(managerPillText))
+                                        {
+                                            <div class="pills-compact">
+                                                @foreach (string pill in managerPillText.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)))
+                                                {
+                                                    <span class="pill-compact manager-pill">@pill</span>
+                                                }
+                                            </div>
+                                        }
+                                        
+                                        @if (!string.IsNullOrEmpty(managerCommentText))
+                                        {
+                                            <div class="comment-compact">
+                                                <em>@managerCommentText</em>
+                                            </div>
+                                        }
+                                        
+                                        @if (string.IsNullOrEmpty(comparison.ManagerResponse))
+                                        {
+                                            <em class="text-muted">No response</em>
+                                        }
+                                        else if (string.IsNullOrEmpty(managerPillText) && string.IsNullOrEmpty(managerCommentText))
+                                        {
+                                            <div class="legacy-response">@comparison.ManagerResponse</div>
+                                        }
+                                    </div>
+                                </td>
+                                
+                                <!-- Collaborative Response Column -->
+                                <td class="response-cell collab-cell">
+                                    @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
+                                    {
+                                        @if (hasCollaborativeResponse)
+                                        {
+                                            <div class="collab-response-display">
+                                                @if (comparison.CollaborativeRating.HasValue)
+                                                {
+                                                    <div class="rating-display">
+                                                        @for (int i = 1; i <= 5; i++)
+                                                        {
+                                                            <span class="star-tiny @(i <= comparison.CollaborativeRating.Value ? "active" : "")">★</span>
+                                                        }
+                                                        <span class="rating-text">(@comparison.CollaborativeRating.Value/5)</span>
+                                                    </div>
+                                                }
+                                                
+                                                @if (!string.IsNullOrEmpty(comparison.CollaborativeResponse))
+                                                {
+                                                    <div class="collab-text">@comparison.CollaborativeResponse</div>
+                                                }
+                                                
+                                                <button type="button" class="btn btn-sm btn-outline-primary mt-2 edit-collab-btn" data-question-id="@comparison.QuestionId">
+                                                    <i class="bi bi-pencil me-1"></i>Edit
+                                                </button>
+                                            </div>
+                                        }
+                                        else if (hasDifferences)
+                                        {
+                                            <button type="button" class="btn btn-warning btn-sm resolve-btn" data-question-id="@comparison.QuestionId">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>Resolve Difference
+                                            </button>
                                         }
                                         else
                                         {
-                                            <em class="text-muted">No collaborative response recorded</em>
+                                            <div class="agreement-status">
+                                                <i class="bi bi-check-circle text-success me-1"></i>
+                                                <span class="text-success">In Agreement</span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 add-collab-btn" data-question-id="@comparison.QuestionId">
+                                                    <i class="bi bi-plus me-1"></i>Add Response
+                                                </button>
+                                            </div>
                                         }
-                                    </div>
-                                </div>
-                            </div>
+                                    }
+                                    else
+                                    {
+                                        <!-- View-only for completed PDRs -->
+                                        <div class="collab-response-final">
+                                            @if (comparison.CollaborativeRating.HasValue)
+                                            {
+                                                <div class="rating-display">
+                                                    @for (int i = 1; i <= 5; i++)
+                                                    {
+                                                        <span class="star-tiny @(i <= comparison.CollaborativeRating.Value ? "active" : "")">★</span>
+                                                    }
+                                                    <span class="rating-text">(@comparison.CollaborativeRating.Value/5)</span>
+                                                </div>
+                                            }
+                                            
+                                            @if (!string.IsNullOrEmpty(comparison.CollaborativeResponse))
+                                            {
+                                                <div class="collab-text">@comparison.CollaborativeResponse</div>
+                                            }
+                                            else
+                                            {
+                                                <em class="text-muted">No collaborative response</em>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
                         }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
+        {
+            <div class="text-center mt-4">
+                <button type="button" class="btn btn-success btn-lg" id="completeCollaborativeBtn">
+                    <i class="bi bi-check-circle me-2"></i>Finalize PDR
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="text-center mt-4">
+                <a asp-controller="PDRs" asp-action="Index" class="btn btn-primary btn-lg">
+                    <i class="bi bi-arrow-left me-2"></i>Back to PDRs
+                </a>
+            </div>
+        }
+    </form>
+</div>
+
+<!-- Collaborative Response Modal -->
+<div class="modal fade" id="collabModal" tabindex="-1" aria-labelledby="collabModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="collabModalLabel">
+                    <i class="bi bi-people me-2"></i>Create Collaborative Response
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalQuestionText" class="question-display mb-4"></div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-person-circle me-2"></i>Staff Response</h6>
+                        <div id="modalStaffResponse" class="response-preview staff-preview"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-person-badge me-2"></i>Manager Response</h6>
+                        <div id="modalManagerResponse" class="response-preview manager-preview"></div>
+                    </div>
+                </div>
+                
+                <div class="collaborative-input-section">
+                    <h6><i class="bi bi-people me-2"></i>Collaborative Response</h6>
+                    
+                    <div class="rating-input mb-3">
+                        <label class="form-label">Agreed Rating</label>
+                        <div class="star-rating-input" id="modalStarRating">
+                            <span class="star-input" data-value="1">★</span>
+                            <span class="star-input" data-value="2">★</span>
+                            <span class="star-input" data-value="3">★</span>
+                            <span class="star-input" data-value="4">★</span>
+                            <span class="star-input" data-value="5">★</span>
+                        </div>
+                        <small class="form-text text-muted">Select the agreed rating for this question</small>
                     </div>
                     
-                    <div class="navigation-buttons">
-                        @if (index > 0)
-                        {
-                            <button type="button" class="btn btn-outline-secondary btn-lg prev-btn" data-target="@(index - 1)">
-                                <i class="bi bi-arrow-left me-2"></i>Previous
-                            </button>
-                        }
-                        
-                        @if (index < allComparisons.Count - 1)
-                        {
-                            <button type="button" class="btn btn-primary btn-lg next-btn ms-auto" data-target="@(index + 1)">
-                                Next<i class="bi bi-arrow-right ms-2"></i>
-                            </button>
-                        }
-                        else if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
-                        {
-                            <button type="button" class="btn btn-success btn-lg ms-auto" id="reviewBtn">
-                                Review & Finalize<i class="bi bi-check-circle ms-2"></i>
-                            </button>
-                        }
-                        else
-                        {
-                            <a asp-controller="PDRs" asp-action="Index" class="btn btn-primary btn-lg ms-auto">
-                                <i class="bi bi-arrow-left me-2"></i>Back to PDRs
-                            </a>
-                        }
+                    <div class="response-input mb-3">
+                        <label class="form-label">Collaborative Response</label>
+                        <textarea id="modalCollabResponse" class="form-control" rows="5" placeholder="Enter the agreed-upon response..."></textarea>
+                        <small class="form-text text-muted">Describe the agreed response based on the discussion</small>
                     </div>
                 </div>
-            }
-            
-            @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
-            {
-                <div class="question-slide review-slide" data-question-index="review" style="display: none;">
-                    <div class="review-content">
-                        <h2 class="text-center mb-4">Review Collaborative PDR</h2>
-                        <div class="review-summary" id="reviewSummary">
-                            <!-- Will be populated by JavaScript -->
-                        </div>
-                        <div class="text-center mt-5">
-                            <button type="button" class="btn btn-outline-secondary btn-lg" id="backToQuestionsBtn">
-                                <i class="bi bi-arrow-left me-2"></i>Back to Questions
-                            </button>
-                            <button type="button" class="btn btn-success btn-lg ms-3" id="completeCollaborativeBtn">
-                                <i class="bi bi-check-circle me-2"></i>Finalize PDR
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="saveCollabResponseBtn">
+                    <i class="bi bi-check-circle me-1"></i>Save Response
+                </button>
+            </div>
         </div>
-    </form>
+    </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const pdrId = document.getElementById('pdrId').value;
-    let currentQuestionIndex = 0;
-    const totalQuestions = document.querySelectorAll('.question-slide:not(.review-slide)').length;
+    let currentQuestionId = null;
+    let modalStarRating = 0;
     
     // Initialize
-    initializeStarRatings();
-    initializeNavigation();
-    initializeAutoSave();
-    updateProgress();
+    initializeTableInteractions();
+    initializeModal();
     
-    function initializeStarRatings() {
-        document.querySelectorAll('.star-rating-large').forEach(ratingContainer => {
-            const questionId = ratingContainer.dataset.questionId;
-            const currentRating = parseInt(ratingContainer.dataset.rating) || 0;
-            const stars = ratingContainer.querySelectorAll('.star-large');
-            const ratingText = ratingContainer.nextElementSibling;
-            
-            // Set initial rating
-            updateStarDisplay(stars, currentRating, ratingText);
-            
-            stars.forEach((star, index) => {
-                const rating = index + 1;
-                
-                // Hover effects
-                star.addEventListener('mouseenter', () => {
-                    highlightStars(stars, rating);
-                });
-                
-                star.addEventListener('mouseleave', () => {
-                    const currentRating = parseInt(ratingContainer.dataset.rating) || 0;
-                    updateStarDisplay(stars, currentRating, ratingText);
-                });
-                
-                // Click to set rating
-                star.addEventListener('click', () => {
-                    ratingContainer.dataset.rating = rating;
-                    updateStarDisplay(stars, rating, ratingText);
-                    
-                    // Show the response textarea with animation
-                    const responseContainer = document.querySelector(`.response-container-centered[data-question-id="${questionId}"]`);
-                    if (responseContainer) {
-                        responseContainer.style.display = 'block';
-                        responseContainer.classList.add('fade-in');
-                        
-                        // Focus on the textarea for better UX
-                        const textarea = responseContainer.querySelector('.response-textarea-large');
-                        if (textarea) {
-                            setTimeout(() => textarea.focus(), 300);
-                        }
-                    }
-                    
-                    saveCollaborativeResponse(questionId);
-                });
-            });
-        });
-    }
-    
-    function initializeNavigation() {
-        // Previous buttons
-        document.querySelectorAll('.prev-btn').forEach(btn => {
+    function initializeTableInteractions() {
+        // Handle resolve difference buttons
+        document.querySelectorAll('.resolve-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const targetIndex = parseInt(this.dataset.target);
-                navigateToQuestion(targetIndex);
-            });
-        });
-        
-        // Next buttons
-        document.querySelectorAll('.next-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const targetIndex = parseInt(this.dataset.target);
-                navigateToQuestion(targetIndex);
-            });
-        });
-        
-        // Review button
-        const reviewBtn = document.getElementById('reviewBtn');
-        if (reviewBtn) {
-            reviewBtn.addEventListener('click', function() {
-                showReviewPage();
-            });
-        }
-        
-        // Back to questions from review
-        const backBtn = document.getElementById('backToQuestionsBtn');
-        if (backBtn) {
-            backBtn.addEventListener('click', function() {
-                navigateToQuestion(totalQuestions - 1);
-            });
-        }
-    }
-    
-    function initializeAutoSave() {
-        document.querySelectorAll('.collaborative-response').forEach(textarea => {
-            let saveTimer;
-            
-            textarea.addEventListener('input', function() {
-                clearTimeout(saveTimer);
                 const questionId = this.dataset.questionId;
-                const indicator = document.querySelector(`.save-indicator[data-question-id="${questionId}"]`);
-                
-                if (indicator) {
-                    indicator.innerHTML = '<small class="text-muted">Typing...</small>';
-                }
-                
-                saveTimer = setTimeout(() => {
-                    saveCollaborativeResponse(questionId);
-                }, 1000); // Auto-save after 1 second of no typing
-            });
-            
-            textarea.addEventListener('blur', function() {
-                clearTimeout(saveTimer);
-                saveCollaborativeResponse(this.dataset.questionId);
+                openCollabModal(questionId);
             });
         });
-    }
-    
-    function navigateToQuestion(index) {
-        // Hide all slides
-        document.querySelectorAll('.question-slide').forEach(slide => {
-            slide.style.display = 'none';
-            slide.classList.remove('slide-in-right', 'slide-in-left');
+        
+        // Handle add response buttons (for agreements)
+        document.querySelectorAll('.add-collab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const questionId = this.dataset.questionId;
+                openCollabModal(questionId);
+            });
         });
         
-        // Show target slide with animation
-        const targetSlide = document.querySelector(`[data-question-index="${index}"]`);
-        if (targetSlide) {
-            targetSlide.style.display = 'block';
+        // Handle edit response buttons
+        document.querySelectorAll('.edit-collab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const questionId = this.dataset.questionId;
+                openCollabModal(questionId, true); // true = editing existing
+            });
+        });
+    }
+    
+    function openCollabModal(questionId, isEditing = false) {
+        currentQuestionId = questionId;
+        const modal = new bootstrap.Modal(document.getElementById('collabModal'));
+        
+        // Find the row data
+        const row = document.querySelector(`tr[data-question-id="${questionId}"]`);
+        const questionText = row.querySelector('.question-content strong').textContent;
+        const staffContent = row.querySelector('.staff-cell .response-content-table').innerHTML;
+        const managerContent = row.querySelector('.manager-cell .response-content-table').innerHTML;
+        
+        // Populate modal
+        document.getElementById('modalQuestionText').innerHTML = `<strong>${questionText}</strong>`;
+        document.getElementById('modalStaffResponse').innerHTML = staffContent;
+        document.getElementById('modalManagerResponse').innerHTML = managerContent;
+        
+        // Clear or populate existing collaborative response
+        if (isEditing) {
+            const existingRating = row.querySelector('.collab-response-display .rating-display .rating-text');
+            const existingText = row.querySelector('.collab-response-display .collab-text');
             
-            // Add animation class based on direction
-            if (index > currentQuestionIndex) {
-                targetSlide.classList.add('slide-in-right');
-            } else {
-                targetSlide.classList.add('slide-in-left');
+            if (existingRating) {
+                const rating = parseInt(existingRating.textContent.match(/\((\d+)\/5\)/)?.[1] || 0);
+                setModalStarRating(rating);
             }
             
-            currentQuestionIndex = index;
-            updateProgress();
-        }
-    }
-    
-    function showReviewPage() {
-        // Hide all question slides
-        document.querySelectorAll('.question-slide').forEach(slide => {
-            slide.style.display = 'none';
-        });
-        
-        // Populate review summary
-        const summaryDiv = document.getElementById('reviewSummary');
-        let summaryHTML = '';
-        let currentCategory = '';
-        
-        document.querySelectorAll('.question-slide:not(.review-slide)').forEach((slide, index) => {
-            const questionId = slide.dataset.questionId;
-            const category = slide.dataset.category;
-            const questionText = slide.querySelector('.question-text').textContent;
-            const rating = document.querySelector(`.star-rating-large[data-question-id="${questionId}"]`).dataset.rating || 0;
-            const response = document.querySelector(`.collaborative-response[data-question-id="${questionId}"]`).value.trim();
-            
-            if (category !== currentCategory) {
-                if (currentCategory !== '') {
-                    summaryHTML += '</div>';
-                }
-                summaryHTML += `<div class="category-section"><h4>${category}</h4>`;
-                currentCategory = category;
+            if (existingText) {
+                document.getElementById('modalCollabResponse').value = existingText.textContent;
             }
             
-            summaryHTML += `
-                <div class="review-item ${rating > 0 ? 'completed' : 'incomplete'}">
-                    <p class="review-question">${questionText}</p>
-                    <div class="review-rating">Rating: ${rating > 0 ? '★'.repeat(rating) : 'Not rated'}</div>
-                    <div class="review-response">${response || '<em>No response provided</em>'}</div>
-                </div>
-            `;
-        });
-        
-        if (currentCategory !== '') {
-            summaryHTML += '</div>';
+            document.getElementById('collabModalLabel').innerHTML = 
+                '<i class="bi bi-pencil me-2"></i>Edit Collaborative Response';
+        } else {
+            setModalStarRating(0);
+            document.getElementById('modalCollabResponse').value = '';
+            document.getElementById('collabModalLabel').innerHTML = 
+                '<i class="bi bi-people me-2"></i>Create Collaborative Response';
         }
         
-        summaryDiv.innerHTML = summaryHTML;
-        
-        // Show review slide
-        document.querySelector('.review-slide').style.display = 'block';
-        document.querySelector('.review-slide').classList.add('fade-in');
+        modal.show();
     }
     
-    function highlightStars(stars, rating) {
-        stars.forEach((star, index) => {
+    function initializeModal() {
+        // Initialize star rating in modal
+        document.querySelectorAll('#modalStarRating .star-input').forEach((star, index) => {
+            const rating = index + 1;
+            
+            star.addEventListener('mouseenter', () => {
+                highlightModalStars(rating);
+            });
+            
+            star.addEventListener('mouseleave', () => {
+                highlightModalStars(modalStarRating);
+            });
+            
+            star.addEventListener('click', () => {
+                setModalStarRating(rating);
+            });
+        });
+        
+        // Save button
+        document.getElementById('saveCollabResponseBtn').addEventListener('click', function() {
+            saveCollaborativeResponse();
+        });
+    }
+    
+    function setModalStarRating(rating) {
+        modalStarRating = rating;
+        highlightModalStars(rating);
+    }
+    
+    function highlightModalStars(rating) {
+        document.querySelectorAll('#modalStarRating .star-input').forEach((star, index) => {
             star.classList.toggle('active', index < rating);
         });
     }
     
-    function updateStarDisplay(stars, rating, ratingText) {
-        highlightStars(stars, rating);
+    function saveCollaborativeResponse() {
+        const response = document.getElementById('modalCollabResponse').value.trim();
+        const rating = modalStarRating;
         
-        const ratingLabels = ['', 'Poor', 'Below Average', 'Average', 'Good', 'Excellent'];
-        if (ratingText) {
-            ratingText.textContent = rating > 0 ? `${ratingLabels[rating]}` : '';
-        }
-    }
-    
-    function saveCollaborativeResponse(questionId) {
-        const responseTextarea = document.querySelector(`.collaborative-response[data-question-id="${questionId}"]`);
-        const starRating = document.querySelector(`.star-rating-large[data-question-id="${questionId}"]`);
-        const indicator = document.querySelector(`.save-indicator[data-question-id="${questionId}"]`);
-        
-        const response = responseTextarea ? responseTextarea.value.trim() : '';
-        const rating = starRating ? parseInt(starRating.dataset.rating) || null : null;
-        
-        // Don't save if neither rating nor response is provided
         if (!rating && !response) {
+            alert('Please provide either a rating or response.');
             return;
         }
         
-        if (indicator) {
-            indicator.innerHTML = '<small class="text-info">Saving...</small>';
-        }
+        const saveBtn = document.getElementById('saveCollabResponseBtn');
+        const originalText = saveBtn.innerHTML;
+        
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
         
         const formData = new FormData();
         formData.append('pdrId', pdrId);
-        formData.append('questionId', questionId);
+        formData.append('questionId', currentQuestionId);
         formData.append('response', response);
         if (rating) formData.append('rating', rating);
         formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
@@ -512,41 +496,23 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                if (indicator) {
-                    indicator.innerHTML = '<small class="text-success"><i class="bi bi-check-circle"></i> Saved</small>';
-                    setTimeout(() => {
-                        indicator.innerHTML = '';
-                    }, 3000);
-                }
-                updateProgress();
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('collabModal')).hide();
+                
+                // Refresh the page to show updated data
+                window.location.reload();
             } else {
-                if (indicator) {
-                    indicator.innerHTML = '<small class="text-danger">Error saving</small>';
-                }
+                alert('Error saving response: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            if (indicator) {
-                indicator.innerHTML = '<small class="text-danger">Error saving</small>';
-            }
+            alert('Error saving response. Please try again.');
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
         });
-    }
-    
-    function updateProgress() {
-        const completedQuestions = Array.from(document.querySelectorAll('.star-rating-large'))
-            .filter(rating => parseInt(rating.dataset.rating) > 0).length;
-        
-        const percentage = Math.round((completedQuestions / totalQuestions) * 100);
-        
-        document.getElementById('progressBar').style.width = percentage + '%';
-        document.getElementById('progressBar').textContent = percentage + '%';
-        
-        const currentSlideNum = currentQuestionIndex + 1;
-        document.getElementById('progressText').textContent = 
-            currentQuestionIndex === 'review' 
-                ? 'Review' 
-                : `Question ${currentSlideNum} of ${totalQuestions}`;
     }
     
     // Complete collaborative PDR
@@ -596,6 +562,359 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* Brand Colors */
+:root {
+    --brand-primary: #008563;
+    --brand-secondary: #10375b;
+    --brand-primary-light: #00a577;
+    --brand-secondary-light: #1a4a6b;
+}
+
+/* Subtle Progress Indicator */
+.progress-indicator-container {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 133, 99, 0.1);
+    padding: 0.75rem 0;
+    margin-bottom: 2rem;
+}
+
+.progress-indicator {
+    height: 3px;
+    background: rgba(0, 133, 99, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar-subtle {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 8px rgba(0, 133, 99, 0.3);
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.progress-text {
+    color: var(--brand-primary);
+    font-weight: 500;
+}
+
+.pdr-info {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.staff-name {
+    color: var(--brand-secondary);
+    font-weight: 600;
+}
+
+.pdr-details {
+    color: #6c757d;
+}
+
+.page-title {
+    color: var(--brand-secondary);
+    margin-bottom: 3rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* Comparison Table */
+.comparison-table-container {
+    margin: 2rem 0;
+}
+
+.comparison-table {
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+}
+
+.comparison-table thead th {
+    background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 1.25rem 1rem;
+    border: none;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.category-row .category-header {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    padding: 1rem;
+    border: none;
+}
+
+.category-title-table {
+    color: white;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* Table Rows */
+.comparison-row {
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.comparison-row:hover {
+    background: rgba(0, 133, 99, 0.02);
+}
+
+.row-differences {
+    background: rgba(255, 193, 7, 0.1);
+    border-left: 4px solid #ffc107;
+}
+
+.row-differences:hover {
+    background: rgba(255, 193, 7, 0.15);
+}
+
+.row-agreement {
+    background: rgba(40, 167, 69, 0.05);
+    border-left: 4px solid var(--brand-primary);
+}
+
+.row-completed {
+    background: rgba(108, 117, 125, 0.05);
+    border-left: 4px solid #6c757d;
+}
+
+/* Table Cells */
+.question-cell, .response-cell {
+    padding: 1.5rem 1rem;
+    vertical-align: top;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.question-cell {
+    background: rgba(248, 249, 250, 0.5);
+}
+
+.question-content strong {
+    color: var(--brand-secondary);
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+/* Response Content in Table */
+.response-content-table {
+    font-size: 0.9rem;
+}
+
+.rating-display {
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.star-tiny {
+    font-size: 14px;
+    color: #e0e6ed;
+}
+
+.star-tiny.active {
+    color: #ffc107;
+}
+
+.rating-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.pills-compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.pill-compact {
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+}
+
+.staff-pill {
+    background: var(--brand-primary);
+}
+
+.manager-pill {
+    background: var(--brand-secondary);
+}
+
+.comment-compact {
+    font-size: 0.85rem;
+    color: #6c757d;
+    padding: 0.5rem;
+    background: rgba(248, 249, 250, 0.8);
+    border-radius: 6px;
+    margin-top: 0.5rem;
+}
+
+.legacy-response {
+    font-size: 0.85rem;
+    color: #495057;
+    line-height: 1.4;
+}
+
+/* Collaborative Cell */
+.collab-cell {
+    text-align: center;
+}
+
+.collab-response-display, .collab-response-final {
+    text-align: left;
+}
+
+.collab-text {
+    font-size: 0.9rem;
+    color: #495057;
+    margin: 0.5rem 0;
+    padding: 0.75rem;
+    background: rgba(0, 133, 99, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid var(--brand-primary);
+}
+
+.agreement-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.resolve-btn {
+    background: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+    font-weight: 500;
+}
+
+.resolve-btn:hover {
+    background: #e0a800;
+    border-color: #d39e00;
+    transform: translateY(-1px);
+}
+
+/* Modal Styles */
+.modal-header {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    color: white;
+    border: none;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+}
+
+.question-display {
+    padding: 1rem;
+    background: rgba(0, 133, 99, 0.05);
+    border-radius: 8px;
+    border-left: 4px solid var(--brand-primary);
+}
+
+.response-preview {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    min-height: 120px;
+    font-size: 0.9rem;
+}
+
+.staff-preview {
+    border-left: 3px solid var(--brand-primary);
+}
+
+.manager-preview {
+    border-left: 3px solid var(--brand-secondary);
+}
+
+.collaborative-input-section {
+    background: rgba(248, 249, 250, 0.5);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 2px solid var(--brand-primary);
+}
+
+.star-rating-input {
+    display: flex;
+    gap: 8px;
+    margin: 0.5rem 0;
+}
+
+.star-input {
+    font-size: 32px;
+    color: #e0e6ed;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.star-input:hover {
+    color: #ffc107;
+    transform: scale(1.1);
+}
+
+.star-input.active {
+    color: #ffc107;
+}
+
+/* Responsive Design for Table */
+@@media (max-width: 1200px) {
+    .comparison-table {
+        font-size: 0.85rem;
+    }
+    
+    .question-cell, .response-cell {
+        padding: 1rem 0.75rem;
+    }
+}
+
+@@media (max-width: 768px) {
+    .comparison-table thead th {
+        padding: 1rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    .question-cell, .response-cell {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .pills-compact {
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    
+    .pill-compact {
+        font-size: 0.7rem;
+    }
+}
+
 /* Import styles from individual PDR form */
 .card {
     border: none;
@@ -606,7 +925,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .card-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
     border: none;
     padding: 1.5rem;
 }
@@ -662,7 +981,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .category-title {
     font-size: 2.5rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -672,7 +991,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .category-divider {
     width: 100px;
     height: 4px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
     margin: 0 auto;
     border-radius: 2px;
 }
@@ -696,11 +1015,11 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .response-card.staff-response {
-    border-left: 4px solid #667eea;
+    border-left: 4px solid var(--brand-primary);
 }
 
 .response-card.manager-response {
-    border-left: 4px solid #ffc107;
+    border-left: 4px solid var(--brand-secondary);
 }
 
 .response-header {
@@ -754,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 2rem;
     background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
     border-radius: 16px;
-    border: 2px solid #28a745;
+    border: 2px solid var(--brand-primary);
 }
 
 .collaborative-section.completed {
@@ -763,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .section-title {
-    color: #28a745;
+    color: var(--brand-primary);
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
@@ -848,8 +1167,8 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .response-textarea-large:focus {
-    border-color: #28a745;
-    box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 4px rgba(0, 133, 99, 0.1);
 }
 
 .save-indicator {
@@ -909,7 +1228,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .category-section h4 {
-    color: #28a745;
+    color: var(--brand-primary);
     margin-bottom: 1rem;
     font-weight: 600;
 }
@@ -924,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .review-item.completed {
-    border-left-color: #28a745;
+    border-left-color: var(--brand-primary);
 }
 
 .review-item.incomplete {
@@ -958,8 +1277,8 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .form-control:focus {
-    border-color: #28a745;
-    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 133, 99, 0.1);
 }
 
 /* Buttons */
@@ -971,23 +1290,23 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
     border: none;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 133, 99, 0.4);
 }
 
 .btn-success {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
     border: none;
 }
 
 .btn-success:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    box-shadow: 0 4px 12px rgba(16, 55, 91, 0.4);
 }
 
 .btn-outline-secondary {
@@ -1002,32 +1321,19 @@ document.addEventListener('DOMContentLoaded', function() {
     transform: translateY(-2px);
 }
 
-/* Progress bar */
-.progress {
-    height: 10px;
-    border-radius: 10px;
-    background: #e8ecf4;
-}
-
-.progress-bar {
-    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
-    border-radius: 10px;
-    transition: width 0.4s ease;
-}
-
 /* Alert styling */
 .alert-info {
-    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    background: linear-gradient(135deg, rgba(0, 133, 99, 0.1) 0%, rgba(16, 55, 91, 0.05) 100%);
     border: none;
     border-radius: 12px;
-    color: #1565c0;
+    color: var(--brand-secondary);
 }
 
 .alert-success {
-    background: linear-gradient(135deg, #e8f5e8 0%, #f1f9f1 100%);
+    background: linear-gradient(135deg, rgba(0, 133, 99, 0.1) 0%, rgba(0, 165, 119, 0.1) 100%);
     border: none;
     border-radius: 12px;
-    color: #2e7d32;
+    color: var(--brand-primary);
 }
 
 /* Animations */

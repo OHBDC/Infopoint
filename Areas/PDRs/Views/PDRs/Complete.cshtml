@@ -13,31 +13,21 @@
 </nav>
 
 <div class="container">
-    <h1>PDR Completion - @Model.ResponseType Review</h1>
-    <div class="row">
-        <div class="col-md-8">
-            <div class="alert alert-info">
-                <h5><i class="bi bi-person-circle me-2"></i>@Model.PDR.Staff.FullName</h5>
-                <p class="mb-0">
-                    <strong>Year:</strong> @Model.PDR.Year | 
-                    <strong>Role:</strong> @Model.PDR.Staff.JobTitle | 
-                    <strong>Area:</strong> @Model.PDR.Staff.Area<br/>
-                    <small class="text-info"><strong>Debug:</strong> ResponseType = @Model.ResponseType</small>
-                </p>
-            </div>
+    <!-- Subtle progress indicator at top -->
+    <div class="progress-indicator-container">
+        <div class="progress-indicator">
+            <div class="progress-bar-subtle" id="progressBar" style="width: 0%"></div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h6>Progress</h6>
-                    <div class="progress mb-2">
-                        <div class="progress-bar" role="progressbar" style="width: 0%" id="progressBar">0%</div>
-                    </div>
-                    <small class="text-muted" id="progressText">Loading...</small>
-                </div>
+        <div class="progress-info">
+            <span class="progress-text" id="progressText">Loading...</span>
+            <div class="pdr-info">
+                <span class="staff-name">@Model.PDR.Staff.FullName</span>
+                <span class="pdr-details">@Model.PDR.Year @Model.ResponseType PDR</span>
             </div>
         </div>
     </div>
+    
+    <h1 class="page-title">@Model.ResponseType Performance Review</h1>
 
     <form id="pdrForm">
         @Html.AntiForgeryToken()
@@ -98,12 +88,29 @@
                             <p class="rating-text-large"></p>
                         </div>
                         
-                        <div class="response-container-centered" data-question-id="@question.Id" style="display: @(existingResponse?.Rating > 0 ? "block" : "none")">
-                            <textarea class="form-control response-textarea-large" 
-                                      rows="6" 
-                                      placeholder="Please share your thoughts..."
-                                      data-question-id="@question.Id">@(existingResponse?.Response ?? "")</textarea>
-                            <div class="save-indicator" data-question-id="@question.Id"></div>
+                        <div class="pill-options-container" data-question-id="@question.Id" style="display: none;">
+                            <div class="pill-options" data-question-id="@question.Id">
+                                <!-- Pills will be populated by JavaScript based on rating -->
+                            </div>
+                        </div>
+                        
+                        <div class="response-container-centered" data-question-id="@question.Id" style="display: none;">
+                            <p class="add-comment-text">
+                                <a href="#" class="add-comment-link" data-question-id="@question.Id">
+                                    <i class="bi bi-chat-text me-1"></i>Add a comment (optional)
+                                </a>
+                            </p>
+                            <div class="comment-section" data-question-id="@question.Id" style="display: none;">
+                                <textarea class="form-control comment-textarea" 
+                                          rows="6" 
+                                          placeholder="Share your thoughts..."
+                                          data-question-id="@question.Id"></textarea>
+                                <div class="save-indicator" data-question-id="@question.Id"></div>
+                            </div>
+                            <!-- Hidden textarea to store the full response -->
+                            <textarea class="response-textarea-large" 
+                                      data-question-id="@question.Id" 
+                                      style="display: none;">@(existingResponse?.Response ?? "")</textarea>
                         </div>
                     </div>
                     
@@ -162,6 +169,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeStarRatings();
     initializeNavigation();
     initializeAutoSave();
+    initializeCommentLinks();
+    initializePillSelections();
     updateProgress();
     
     function initializeStarRatings() {
@@ -192,17 +201,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     ratingContainer.dataset.rating = rating;
                     updateStarDisplay(stars, rating, ratingText);
                     
-                    // Show the response textarea with animation
+                    // Show pill options based on rating
+                    showPillOptions(questionId, rating);
+                    
+                    // Show the response container but keep comment section hidden
                     const responseContainer = document.querySelector(`.response-container-centered[data-question-id="${questionId}"]`);
                     if (responseContainer) {
                         responseContainer.style.display = 'block';
                         responseContainer.classList.add('fade-in');
-                        
-                        // Focus on the textarea for better UX
-                        const textarea = responseContainer.querySelector('.response-textarea-large');
-                        if (textarea) {
-                            setTimeout(() => textarea.focus(), 300);
-                        }
                     }
                     
                     saveResponse(questionId);
@@ -223,6 +229,23 @@ document.addEventListener('DOMContentLoaded', function() {
         // Next buttons
         document.querySelectorAll('.next-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                const currentSlide = document.querySelector('.question-slide[style*="block"]');
+                const questionId = currentSlide.dataset.questionId;
+                
+                // Check if rating is selected
+                const rating = document.querySelector(`.star-rating-large[data-question-id="${questionId}"]`).dataset.rating;
+                if (!rating || rating === '0') {
+                    showValidationMessage(questionId, 'Please select a rating before proceeding');
+                    return;
+                }
+                
+                // Check if at least one pill is selected
+                const selectedPills = document.querySelectorAll(`.pill-options[data-question-id="${questionId}"] .feedback-pill.active`);
+                if (selectedPills.length === 0) {
+                    showValidationMessage(questionId, 'Please select at least one feedback option before proceeding');
+                    return;
+                }
+                
                 const targetIndex = parseInt(this.dataset.target);
                 navigateToQuestion(targetIndex);
             });
@@ -232,6 +255,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const reviewBtn = document.getElementById('reviewBtn');
         if (reviewBtn) {
             reviewBtn.addEventListener('click', function() {
+                const currentSlide = document.querySelector('.question-slide[style*="block"]');
+                const questionId = currentSlide.dataset.questionId;
+                
+                // Check if rating is selected
+                const rating = document.querySelector(`.star-rating-large[data-question-id="${questionId}"]`).dataset.rating;
+                if (!rating || rating === '0') {
+                    showValidationMessage(questionId, 'Please select a rating before proceeding');
+                    return;
+                }
+                
+                // Check if at least one pill is selected
+                const selectedPills = document.querySelectorAll(`.pill-options[data-question-id="${questionId}"] .feedback-pill.active`);
+                if (selectedPills.length === 0) {
+                    showValidationMessage(questionId, 'Please select at least one feedback option before proceeding');
+                    return;
+                }
+                
                 showReviewPage();
             });
         }
@@ -246,7 +286,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initializeAutoSave() {
-        document.querySelectorAll('.response-textarea-large').forEach(textarea => {
+        // Handle comment textareas separately
+        document.querySelectorAll('.comment-textarea').forEach(textarea => {
             let saveTimer;
             
             textarea.addEventListener('input', function() {
@@ -259,15 +300,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 saveTimer = setTimeout(() => {
+                    updateFullResponse(questionId);
                     saveResponse(questionId);
-                }, 1000); // Auto-save after 1 second of no typing
+                }, 1000);
             });
             
             textarea.addEventListener('blur', function() {
                 clearTimeout(saveTimer);
+                updateFullResponse(this.dataset.questionId);
                 saveResponse(this.dataset.questionId);
             });
         });
+    }
+    
+    function updateFullResponse(questionId) {
+        const selectedPills = Array.from(
+            document.querySelectorAll(`.pill-options[data-question-id="${questionId}"] .feedback-pill.active`)
+        ).map(pill => pill.textContent);
+        
+        const commentTextarea = document.querySelector(`.comment-textarea[data-question-id="${questionId}"]`);
+        const comment = commentTextarea ? commentTextarea.value.trim() : '';
+        
+        let fullResponse = '';
+        
+        if (selectedPills.length > 0) {
+            fullResponse = 'Selected feedback: ' + selectedPills.join(', ');
+            if (comment) {
+                fullResponse += '\nAdditional comment: ' + comment;
+            }
+        } else if (comment) {
+            fullResponse = 'Additional comment: ' + comment;
+        }
+        
+        // Update the hidden response textarea
+        const responseTextarea = document.querySelector(`.response-textarea-large[data-question-id="${questionId}"]`);
+        if (responseTextarea) {
+            responseTextarea.value = fullResponse;
+        }
     }
     
     function navigateToQuestion(index) {
@@ -320,11 +389,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentCategory = category;
             }
             
+            // Parse the response to separate pills and comments
+            let pillText = '';
+            let commentText = '';
+            if (response) {
+                const pillMatch = response.match(/Selected feedback: (.*?)(?:\n|$)/);
+                const commentMatch = response.match(/Additional comment: (.*)/s);
+                if (pillMatch) pillText = pillMatch[1];
+                if (commentMatch) commentText = commentMatch[1];
+            }
+            
             summaryHTML += `
                 <div class="review-item ${rating > 0 ? 'completed' : 'incomplete'}">
                     <p class="review-question">${questionText}</p>
                     <div class="review-rating">Rating: ${rating > 0 ? '★'.repeat(rating) : 'Not rated'}</div>
-                    <div class="review-response">${response || '<em>No response provided</em>'}</div>
+                    ${pillText ? `<div class="review-pills"><strong>Feedback:</strong> ${pillText}</div>` : ''}
+                    ${commentText ? `<div class="review-comment"><strong>Comment:</strong> ${commentText}</div>` : ''}
+                    ${!pillText && !commentText && rating > 0 ? '<em>No additional feedback provided</em>' : ''}
                 </div>
             `;
         });
@@ -415,13 +496,185 @@ document.addEventListener('DOMContentLoaded', function() {
         const percentage = Math.round((completedQuestions / totalQuestions) * 100);
         
         document.getElementById('progressBar').style.width = percentage + '%';
-        document.getElementById('progressBar').textContent = percentage + '%';
         
         const currentSlideNum = currentQuestionIndex + 1;
         document.getElementById('progressText').textContent = 
             currentQuestionIndex === 'review' 
                 ? 'Review' 
                 : `Question ${currentSlideNum} of ${totalQuestions}`;
+    }
+    
+    function showPillOptions(questionId, rating) {
+        const pillContainer = document.querySelector(`.pill-options-container[data-question-id="${questionId}"]`);
+        const pillOptionsDiv = document.querySelector(`.pill-options[data-question-id="${questionId}"]`);
+        
+        if (!pillContainer || !pillOptionsDiv) return;
+        
+        // Define pill options based on rating
+        let pillOptions = [];
+        
+        if (rating >= 4) {
+            // 4-5 stars: Positive options
+            pillOptions = [
+                'Exceeding expectations',
+                'Very supportive',
+                'Great work-life balance',
+                'Feeling motivated',
+                'Clear goals',
+                'Strong team collaboration',
+                'Excellent progress',
+                'Well-resourced'
+            ];
+        } else if (rating === 3) {
+            // 3 stars: Neutral options
+            pillOptions = [
+                'Meeting expectations',
+                'Adequate support',
+                'Room for improvement',
+                'Steady progress',
+                'Some challenges',
+                'Managing workload',
+                'Need clarity',
+                'Developing skills'
+            ];
+        } else {
+            // 1-2 stars: Areas for improvement
+            pillOptions = [
+                'Need more support',
+                'Feeling overwhelmed',
+                'Unclear expectations',
+                'Limited resources',
+                'Communication gaps',
+                'Heavy workload',
+                'Skill development needed',
+                'Seeking guidance'
+            ];
+        }
+        
+        // Clear existing pills
+        pillOptionsDiv.innerHTML = '';
+        
+        // Add pills
+        pillOptions.forEach(option => {
+            const pill = document.createElement('span');
+            pill.className = 'feedback-pill';
+            pill.textContent = option;
+            pill.dataset.questionId = questionId;
+            pill.addEventListener('click', function() {
+                this.classList.toggle('active');
+                updateSelectedPills(questionId);
+            });
+            pillOptionsDiv.appendChild(pill);
+        });
+        
+        // Show container with animation
+        pillContainer.style.display = 'block';
+        pillContainer.classList.add('fade-in');
+        
+        // Check if we have existing selections
+        const existingResponse = document.querySelector(`.response-textarea-large[data-question-id="${questionId}"]`);
+        if (existingResponse && existingResponse.value) {
+            // Try to match existing response with pills
+            const responseText = existingResponse.value.toLowerCase();
+            pillOptionsDiv.querySelectorAll('.feedback-pill').forEach(pill => {
+                if (responseText.includes(pill.textContent.toLowerCase())) {
+                    pill.classList.add('active');
+                }
+            });
+        }
+    }
+    
+    function updateSelectedPills(questionId) {
+        updateFullResponse(questionId);
+        saveResponse(questionId);
+    }
+    
+    function initializeCommentLinks() {
+        document.querySelectorAll('.add-comment-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const questionId = this.dataset.questionId;
+                const commentSection = document.querySelector(`.comment-section[data-question-id="${questionId}"]`);
+                
+                if (commentSection) {
+                    if (commentSection.style.display === 'none') {
+                        commentSection.style.display = 'block';
+                        commentSection.classList.add('fade-in');
+                        const textarea = commentSection.querySelector('textarea');
+                        if (textarea) {
+                            setTimeout(() => textarea.focus(), 100);
+                        }
+                        this.innerHTML = '<i class="bi bi-chat-text-fill me-1"></i>Hide comment';
+                    } else {
+                        commentSection.style.display = 'none';
+                        this.innerHTML = '<i class="bi bi-chat-text me-1"></i>Add a comment (optional)';
+                    }
+                }
+            });
+        });
+    }
+    
+    function initializePillSelections() {
+        // Handle any pre-existing ratings
+        document.querySelectorAll('.star-rating-large').forEach(ratingContainer => {
+            const rating = parseInt(ratingContainer.dataset.rating);
+            if (rating > 0) {
+                const questionId = ratingContainer.dataset.questionId;
+                showPillOptions(questionId, rating);
+                
+                // Show response container if rating exists
+                const responseContainer = document.querySelector(`.response-container-centered[data-question-id="${questionId}"]`);
+                if (responseContainer) {
+                    responseContainer.style.display = 'block';
+                    
+                    // Check if there's a comment in the response
+                    const responseTextarea = responseContainer.querySelector('.response-textarea-large');
+                    if (responseTextarea && responseTextarea.value) {
+                        const commentMatch = responseTextarea.value.match(/Additional comment: (.*)/s);
+                        if (commentMatch && commentMatch[1]) {
+                            const commentTextarea = responseContainer.querySelector('.comment-textarea');
+                            const commentSection = responseContainer.querySelector('.comment-section');
+                            const addCommentLink = responseContainer.querySelector('.add-comment-link');
+                            
+                            if (commentTextarea && commentSection && addCommentLink) {
+                                commentTextarea.value = commentMatch[1];
+                                commentSection.style.display = 'block';
+                                addCommentLink.innerHTML = '<i class="bi bi-chat-text-fill me-1"></i>Hide comment';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function showValidationMessage(questionId, message) {
+        // Remove any existing validation messages
+        document.querySelectorAll('.validation-message').forEach(msg => msg.remove());
+        
+        // Create and show new validation message
+        const questionSlide = document.querySelector(`.question-slide[data-question-id="${questionId}"]`);
+        if (questionSlide) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'validation-message alert alert-warning fade-in';
+            messageDiv.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
+            
+            // Insert after the pill options or rating section
+            const pillContainer = questionSlide.querySelector('.pill-options-container');
+            const ratingSection = questionSlide.querySelector('.rating-section');
+            
+            if (pillContainer && pillContainer.style.display !== 'none') {
+                pillContainer.after(messageDiv);
+            } else if (ratingSection) {
+                ratingSection.after(messageDiv);
+            }
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.classList.add('fade-out');
+                setTimeout(() => messageDiv.remove(), 300);
+            }, 5000);
+        }
     }
     
     // Complete PDR
@@ -469,6 +722,77 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* Brand Colors */
+:root {
+    --brand-primary: #008563;
+    --brand-secondary: #10375b;
+    --brand-primary-light: #00a577;
+    --brand-secondary-light: #1a4a6b;
+}
+
+/* Subtle Progress Indicator */
+.progress-indicator-container {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 133, 99, 0.1);
+    padding: 0.75rem 0;
+    margin-bottom: 2rem;
+}
+
+.progress-indicator {
+    height: 3px;
+    background: rgba(0, 133, 99, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar-subtle {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 8px rgba(0, 133, 99, 0.3);
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.progress-text {
+    color: var(--brand-primary);
+    font-weight: 500;
+}
+
+.pdr-info {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.staff-name {
+    color: var(--brand-secondary);
+    font-weight: 600;
+}
+
+.pdr-details {
+    color: #6c757d;
+}
+
+.page-title {
+    color: var(--brand-secondary);
+    margin-bottom: 3rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+}
+
 /* Modern card design */
 .card {
     border: none;
@@ -535,7 +859,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .category-title {
     font-size: 2.5rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -545,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .category-divider {
     width: 100px;
     height: 4px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
     margin: 0 auto;
     border-radius: 2px;
 }
@@ -595,6 +919,53 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-top: 1rem;
 }
 
+/* Pill Options */
+.pill-options-container {
+    max-width: 700px;
+    margin: 2rem auto 1rem;
+    opacity: 0;
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.pill-options-container.fade-in {
+    opacity: 1;
+}
+
+.pill-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    padding: 0 1rem;
+}
+
+.feedback-pill {
+    display: inline-block;
+    padding: 0.5rem 1.25rem;
+    border-radius: 25px;
+    background: #f0f4f8;
+    color: #4a5568;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    user-select: none;
+}
+
+.feedback-pill:hover {
+    background: #e2e8f0;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.feedback-pill.active {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+    color: white;
+    border-color: var(--brand-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 133, 99, 0.3);
+}
+
 /* Response Container */
 .response-container-centered {
     max-width: 700px;
@@ -605,6 +976,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .response-container-centered.fade-in {
     opacity: 1;
+}
+
+/* Add Comment Link */
+.add-comment-text {
+    text-align: center;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.add-comment-link {
+    color: var(--brand-primary);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 1.05rem;
+    transition: all 0.2s ease;
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+
+.add-comment-link:hover {
+    color: var(--brand-secondary);
+    background: rgba(0, 133, 99, 0.05);
+    transform: translateY(-1px);
+}
+
+.comment-section {
+    opacity: 0;
+    animation: fadeInUp 0.4s ease forwards;
+}
+
+.comment-section.fade-in {
+    opacity: 1;
+}
+
+.comment-textarea {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    border-radius: 12px;
+    border: 2px solid #e8ecf4;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    resize: vertical;
+}
+
+.comment-textarea:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 4px rgba(0, 133, 99, 0.1);
 }
 
 .response-textarea-large {
@@ -618,8 +1037,8 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .response-textarea-large:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 4px rgba(0, 133, 99, 0.1);
 }
 
 .save-indicator {
@@ -656,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .category-section h4 {
-    color: #667eea;
+    color: var(--brand-primary);
     margin-bottom: 1rem;
     font-weight: 600;
 }
@@ -671,11 +1090,11 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .review-item.completed {
-    border-left-color: #4facfe;
+    border-left-color: var(--brand-primary);
 }
 
 .review-item.incomplete {
-    border-left-color: #ff6b6b;
+    border-left-color: #dc3545;
     background: #fff5f5;
 }
 
@@ -696,6 +1115,18 @@ document.addEventListener('DOMContentLoaded', function() {
     line-height: 1.6;
 }
 
+.review-pills {
+    margin: 0.5rem 0;
+    color: var(--brand-primary);
+    font-size: 0.95rem;
+}
+
+.review-comment {
+    margin: 0.5rem 0;
+    color: #4a5568;
+    font-style: italic;
+}
+
 /* Form controls */
 .form-control {
     border-radius: 8px;
@@ -705,8 +1136,8 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .form-control:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 133, 99, 0.1);
 }
 
 /* Buttons */
@@ -718,23 +1149,23 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
     border: none;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 133, 99, 0.4);
 }
 
 .btn-success {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
     border: none;
 }
 
 .btn-success:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+    box-shadow: 0 4px 12px rgba(16, 55, 91, 0.4);
 }
 
 .btn-outline-secondary {
@@ -749,25 +1180,28 @@ document.addEventListener('DOMContentLoaded', function() {
     transform: translateY(-2px);
 }
 
-/* Progress bar */
-.progress {
-    height: 10px;
-    border-radius: 10px;
-    background: #e8ecf4;
-}
-
-.progress-bar {
-    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
-    border-radius: 10px;
-    transition: width 0.4s ease;
-}
+/* Legacy progress bar styles removed - using new subtle progress indicator */
 
 /* Alert styling */
 .alert-info {
-    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    background: linear-gradient(135deg, rgba(0, 133, 99, 0.1) 0%, rgba(16, 55, 91, 0.05) 100%);
     border: none;
     border-radius: 12px;
-    color: #1565c0;
+    color: var(--brand-secondary);
+}
+
+/* Validation message */
+.validation-message {
+    margin: 1rem auto;
+    max-width: 600px;
+    text-align: center;
+    border-radius: 12px;
+    animation: shake 0.5s ease;
+}
+
+.validation-message.fade-out {
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 /* Animations */
@@ -832,6 +1266,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 
+@@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-5px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(5px);
+    }
+}
+
 /* Breadcrumb */
 .breadcrumb {
     background: transparent;
@@ -865,6 +1311,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .navigation-buttons .btn {
         width: 100%;
+    }
+    
+    .feedback-pill {
+        font-size: 0.85rem;
+        padding: 0.4rem 1rem;
+    }
+    
+    .pill-options {
+        gap: 0.5rem;
     }
 }
 </style>
