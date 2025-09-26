@@ -1,6 +1,35 @@
+@model InfoPoint.Areas.PDRs.Controllers.PDRIndexViewModel
 @{
-    ViewData["Title"] = "PDRs";
+    ViewData["Title"] = "Performance Development Reviews";
     Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@functions {
+    private string GetStatusBadgeClass(InfoPoint.Models.PDRStatus status)
+    {
+        return status switch
+        {
+            InfoPoint.Models.PDRStatus.Assigned => "secondary",
+            InfoPoint.Models.PDRStatus.StaffCompleted => "primary",
+            InfoPoint.Models.PDRStatus.ManagerCompleted => "warning",
+            InfoPoint.Models.PDRStatus.ReadyForCollaboration => "success",
+            InfoPoint.Models.PDRStatus.Completed => "info",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusDisplayName(InfoPoint.Models.PDRStatus status)
+    {
+        return status switch
+        {
+            InfoPoint.Models.PDRStatus.Assigned => "Assigned",
+            InfoPoint.Models.PDRStatus.StaffCompleted => "Staff Completed",
+            InfoPoint.Models.PDRStatus.ManagerCompleted => "Manager Completed",
+            InfoPoint.Models.PDRStatus.ReadyForCollaboration => "Ready for Collaboration",
+            InfoPoint.Models.PDRStatus.Completed => "Completed",
+            _ => status.ToString()
+        };
+    }
 }
 
 <nav aria-label="breadcrumb">
@@ -11,23 +40,902 @@
 </nav>
 
 <div class="container">
-    <h1>PDRs Section</h1>
-    <p class="lead">Welcome to the Performance Development Reviews management area.</p>
+    <h1>Performance Development Reviews</h1>
+    <p class="lead">Welcome @Model.Staff.FullName, manage your PDRs and review your team's performance.</p>
     
+    @{
+        bool hasManagerResponsibilities = Model.ManagerPDRs.Any();
+    }
+
+    <!-- Manager's Team PDRs (Show first if user is a manager) -->
+    @if (hasManagerResponsibilities)
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="modern-card">
+                    <div class="modern-card-header team-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-people me-2"></i>Team PDRs</h5>
+                            <button type="button" class="btn btn-light btn-sm modern-btn" onclick="showAssignPDRModal()">
+                                <i class="bi bi-plus-circle me-1"></i>Assign PDR to Team
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modern-card-body">
+                        <div class="modern-table-container">
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th><i class="bi bi-person me-2"></i>Staff Member</th>
+                                        <th><i class="bi bi-calendar me-2"></i>Period</th>
+                                        <th><i class="bi bi-flag me-2"></i>Status</th>
+                                        <th><i class="bi bi-clock me-2"></i>Due Date</th>
+                                        <th><i class="bi bi-check-circle me-2"></i>Staff</th>
+                                        <th><i class="bi bi-person-badge me-2"></i>Manager</th>
+                                        <th><i class="bi bi-gear me-2"></i>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pdr in Model.ManagerPDRs)
+                                    {
+                                        <tr class="table-row">
+                                            <td>
+                                                <div class="staff-info">
+                                                    <strong>@pdr.Staff.FullName</strong>
+                                                    <small class="d-block text-muted">@pdr.Staff.JobTitle</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="period-info">
+                                                    <strong>@pdr.Year</strong>
+                                                    @if (!string.IsNullOrEmpty(pdr.Period))
+                                                    {
+                                                        <small class="d-block text-primary fw-medium">@pdr.Period</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="d-block text-muted">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(pdr.Month)</small>
+                                                    }
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge status-@pdr.Status.ToString().ToLower()">
+                                                    @GetStatusDisplayName(pdr.Status)
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if (pdr.DueDate.HasValue)
+                                                {
+                                                    <span class="date-text">@pdr.DueDate.Value.ToString("MMM dd, yyyy")</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (pdr.StaffCompletedDate.HasValue)
+                                                {
+                                                    <span class="completed-date">
+                                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                                        @pdr.StaffCompletedDate.Value.ToString("MMM dd")
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="pending-status">
+                                                        <i class="bi bi-clock text-muted me-1"></i>
+                                                        Pending
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (pdr.ManagerCompletedDate.HasValue)
+                                                {
+                                                    <span class="completed-date">
+                                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                                        @pdr.ManagerCompletedDate.Value.ToString("MMM dd")
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="pending-status">
+                                                        <i class="bi bi-clock text-muted me-1"></i>
+                                                        Pending
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.StaffCompleted)
+                                                    {
+                                                        <a asp-action="Complete" asp-route-id="@pdr.Id" asp-route-type="Manager" class="btn btn-warning btn-sm modern-action-btn">
+                                                            <i class="bi bi-pencil me-1"></i>Review
+                                                        </a>
+                                                    }
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.ReadyForCollaboration)
+                                                    {
+                                                        <a asp-action="Compare" asp-route-id="@pdr.Id" class="btn btn-success btn-sm modern-action-btn">
+                                                            <i class="bi bi-people me-1"></i>Collaborate
+                                                        </a>
+                                                    }
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.Completed)
+                                                    {
+                                                        <a asp-action="Compare" asp-route-id="@pdr.Id" class="btn btn-secondary btn-sm modern-action-btn">
+                                                            <i class="bi bi-eye me-1"></i>View
+                                                        </a>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Staff's Own PDRs -->
     <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">PDR Features</h5>
-                    <p class="card-text">This section will contain features for managing PDRs, including:</p>
-                    <ul>
-                        <li>Schedule PDR meetings</li>
-                        <li>Set objectives</li>
-                        <li>Track performance</li>
-                        <li>Generate PDR reports</li>
-                    </ul>
+        <div class="col-12">
+            <div class="modern-card @(hasManagerResponsibilities ? "personal-pdrs" : "")">
+                <div class="modern-card-header @(hasManagerResponsibilities ? "personal-header" : "")">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            @if (hasManagerResponsibilities)
+                            {
+                                <i class="bi bi-person me-2"></i><span>My Personal PDRs</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-clipboard-data me-2"></i><span>My PDRs</span>
+                            }
+                        </h5>
+                        @if (!hasManagerResponsibilities)
+                        {
+                            <button type="button" class="btn btn-light btn-sm modern-btn" onclick="showAssignPersonalPDRModal()">
+                                <i class="bi bi-plus-circle me-1"></i>Request New PDR
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="modern-card-body">
+                    @if (Model.StaffPDRs.Any())
+                    {
+                        <div class="modern-table-container">
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th><i class="bi bi-calendar me-2"></i>Period</th>
+                                        <th><i class="bi bi-flag me-2"></i>Status</th>
+                                        <th><i class="bi bi-clock me-2"></i>Due Date</th>
+                                        <th><i class="bi bi-check-circle me-2"></i>Staff</th>
+                                        <th><i class="bi bi-person-badge me-2"></i>Manager</th>
+                                        <th><i class="bi bi-gear me-2"></i>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pdr in Model.StaffPDRs)
+                                    {
+                                        <tr class="table-row">
+                                            <td>
+                                                <div class="period-info">
+                                                    <strong>@pdr.Year</strong>
+                                                    @if (!string.IsNullOrEmpty(pdr.Period))
+                                                    {
+                                                        <small class="d-block text-primary fw-medium">@pdr.Period</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="d-block text-muted">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(pdr.Month)</small>
+                                                    }
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="status-container">
+                                                    <span class="status-badge status-@pdr.Status.ToString().ToLower()">
+                                                        @GetStatusDisplayName(pdr.Status)
+                                                    </span>
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.StaffCompleted)
+                                                    {
+                                                        <small class="d-block mt-1 text-warning">
+                                                            <i class="bi bi-hourglass-split me-1"></i>Awaiting manager review
+                                                        </small>
+                                                    }
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (pdr.DueDate.HasValue)
+                                                {
+                                                    <span class="date-text">@pdr.DueDate.Value.ToString("MMM dd, yyyy")</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (pdr.StaffCompletedDate.HasValue)
+                                                {
+                                                    <span class="completed-date">
+                                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                                        @pdr.StaffCompletedDate.Value.ToString("MMM dd")
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="pending-status">
+                                                        <i class="bi bi-clock text-muted me-1"></i>
+                                                        Pending
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (pdr.ManagerCompletedDate.HasValue)
+                                                {
+                                                    <span class="completed-date">
+                                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                                        @pdr.ManagerCompletedDate.Value.ToString("MMM dd")
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="pending-status">
+                                                        <i class="bi bi-clock text-muted me-1"></i>
+                                                        Pending
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.Assigned)
+                                                    {
+                                                        <a asp-action="Complete" asp-route-id="@pdr.Id" asp-route-type="Staff" class="btn btn-primary btn-sm modern-action-btn">
+                                                            <i class="bi bi-play-circle me-1"></i>Start
+                                                        </a>
+                                                    }
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.StaffCompleted)
+                                                    {
+                                                        <a asp-action="Complete" asp-route-id="@pdr.Id" asp-route-type="Staff" class="btn btn-outline-primary btn-sm modern-action-btn">
+                                                            <i class="bi bi-pencil-square me-1"></i>Edit
+                                                        </a>
+                                                    }
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.ReadyForCollaboration)
+                                                    {
+                                                        <div class="waiting-status">
+                                                            <span class="status-badge status-waiting">
+                                                                <i class="bi bi-clock-history me-1"></i>Waiting for Manager
+                                                            </span>
+                                                            <small class="text-muted d-block mt-1">Manager will start collaboration</small>
+                                                        </div>
+                                                    }
+                                                    @if (pdr.Status == InfoPoint.Models.PDRStatus.Completed)
+                                                    {
+                                                        <a asp-action="Compare" asp-route-id="@pdr.Id" class="btn btn-secondary btn-sm modern-action-btn">
+                                                            <i class="bi bi-eye me-1"></i>View
+                                                        </a>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="bi bi-clipboard-data"></i>
+                            </div>
+                            <h6 class="empty-state-title">No PDRs Yet</h6>
+                            <p class="empty-state-text">You don't have any PDRs assigned yet. Contact your manager or request a new PDR to get started.</p>
+                            @if (!hasManagerResponsibilities)
+                            {
+                                <button type="button" class="btn btn-primary" onclick="showAssignPersonalPDRModal()">
+                                    <i class="bi bi-plus-circle me-1"></i>Request New PDR
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         </div>
     </div>
+
 </div>
+
+<!-- Assign PDR Modal -->
+<div class="modal fade" id="assignPDRModal" tabindex="-1" aria-labelledby="assignPDRModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignPDRModalLabel">Assign PDR to Team</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="assignPDRForm">
+                    <div class="mb-3">
+                        <label for="pdrYear" class="form-label">Year</label>
+                        <select class="form-select" id="pdrYear" required>
+                            <option value="@DateTime.Now.Year">@DateTime.Now.Year</option>
+                            <option value="@(DateTime.Now.Year + 1)">@(DateTime.Now.Year + 1)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pdrMonth" class="form-label">Month</label>
+                        <select class="form-select" id="pdrMonth" required>
+                            @for (int i = 1; i <= 12; i++)
+                            {
+                                var monthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i);
+                                var isSelected = i == DateTime.Now.Month;
+                                <option value="@i" selected="@isSelected">@monthName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pdrPeriod" class="form-label">Period Description (Optional)</label>
+                        <input type="text" class="form-control" id="pdrPeriod" placeholder="e.g., Q1 Review, Mid-Year Assessment, Annual Review">
+                        <div class="form-text">This helps identify the purpose of this PDR cycle</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pdrDueDate" class="form-label">Due Date</label>
+                        <input type="date" class="form-control" id="pdrDueDate" required>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        This will assign PDRs to all your team members for the selected period.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="assignTeamPDRs()">
+                    <i class="bi bi-check-circle me-1"></i>Assign to Team
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Personal PDR Request Modal -->
+<div class="modal fade" id="personalPDRModal" tabindex="-1" aria-labelledby="personalPDRModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="personalPDRModalLabel">Request New PDR</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="personalPDRForm">
+                    <div class="mb-3">
+                        <label for="personalPdrYear" class="form-label">Year</label>
+                        <select class="form-select" id="personalPdrYear" required>
+                            <option value="@DateTime.Now.Year">@DateTime.Now.Year</option>
+                            <option value="@(DateTime.Now.Year + 1)">@(DateTime.Now.Year + 1)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="personalPdrMonth" class="form-label">Month</label>
+                        <select class="form-select" id="personalPdrMonth" required>
+                            @for (int i = 1; i <= 12; i++)
+                            {
+                                var monthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i);
+                                var isSelected = i == DateTime.Now.Month;
+                                <option value="@i" selected="@isSelected">@monthName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="personalPdrPeriod" class="form-label">Purpose (Optional)</label>
+                        <input type="text" class="form-control" id="personalPdrPeriod" placeholder="e.g., Self-initiated review, Quarterly check-in">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="assignPersonalPDR()">
+                    <i class="bi bi-check-circle me-1"></i>Create PDR
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Set default due date to 30 days from now
+    document.addEventListener('DOMContentLoaded', function() {
+        const defaultDueDate = new Date();
+        defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+        const dueDateInput = document.getElementById('pdrDueDate');
+        if (dueDateInput) {
+            dueDateInput.value = defaultDueDate.toISOString().split('T')[0];
+        }
+    });
+
+    function showAssignPDRModal() {
+        new bootstrap.Modal(document.getElementById('assignPDRModal')).show();
+    }
+
+    function showAssignPersonalPDRModal() {
+        new bootstrap.Modal(document.getElementById('personalPDRModal')).show();
+    }
+
+    function assignTeamPDRs() {
+        const year = document.getElementById('pdrYear').value;
+        const month = document.getElementById('pdrMonth').value;
+        const period = document.getElementById('pdrPeriod').value;
+        const dueDate = document.getElementById('pdrDueDate').value;
+
+        if (!year || !month || !dueDate) {
+            alert('Please fill in all required fields');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('year', year);
+        formData.append('month', month);
+        formData.append('period', period);
+        formData.append('dueDate', dueDate);
+        formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+
+        fetch('@Url.Action("AssignTeamPDRs", "PDRs", new { area = "PDRs" })', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('assignPDRModal')).hide();
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred');
+        });
+    }
+
+    function assignPersonalPDR() {
+        const year = document.getElementById('personalPdrYear').value;
+        const month = document.getElementById('personalPdrMonth').value;
+        const period = document.getElementById('personalPdrPeriod').value;
+
+        const formData = new FormData();
+        formData.append('staffReference', '@Model.Staff.StaffReference');
+        formData.append('year', year);
+        formData.append('month', month);
+        formData.append('period', period);
+        formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+
+        fetch('@Url.Action("AssignPDR", "PDRs", new { area = "PDRs" })', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('personalPDRModal')).hide();
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred');
+        });
+    }
+
+    // Legacy function for backward compatibility (can be removed later)
+    function assignPDR(staffReference, year) {
+        const formData = new FormData();
+        formData.append('staffReference', staffReference);
+        formData.append('year', year);
+        formData.append('month', new Date().getMonth() + 1);
+        formData.append('period', '');
+        formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+
+        fetch('@Url.Action("AssignPDR", "PDRs", new { area = "PDRs" })', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred');
+        });
+    }
+</script>
+
+<style>
+/* Modern PDR Styling with Brand Colors */
+:root {
+    --brand-primary: #008563;
+    --brand-secondary: #10375b;
+    --brand-primary-light: #00a577;
+    --brand-secondary-light: #1a4a6b;
+}
+
+/* Modern Cards */
+.modern-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: none;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.modern-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.modern-card-header {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    border: none;
+    font-weight: 600;
+}
+
+.modern-card-header h5 {
+    color: white;
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.modern-card-header.personal-header {
+    background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
+}
+
+.modern-card-header.team-header {
+    background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
+}
+
+.modern-card-body {
+    padding: 0;
+}
+
+.modern-card.personal-pdrs {
+    border: 2px solid var(--brand-secondary);
+    border-top: none;
+}
+
+/* Modern Tables */
+.modern-table-container {
+    overflow: hidden;
+    border-radius: 0 0 16px 16px;
+}
+
+.modern-table {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.modern-table thead th {
+    background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 1.25rem 1.5rem;
+    border: none;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modern-table tbody tr.table-row {
+    border: none;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.modern-table tbody tr.table-row:hover {
+    background: linear-gradient(135deg, rgba(0, 133, 99, 0.02) 0%, rgba(16, 55, 91, 0.02) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.modern-table td {
+    padding: 1.5rem;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Staff Info */
+.staff-info strong {
+    color: var(--brand-secondary);
+    font-size: 1rem;
+}
+
+.staff-info small {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+/* Period Info */
+.period-info strong {
+    color: #2d3748;
+    font-size: 1.1rem;
+}
+
+.period-info .text-primary {
+    color: var(--brand-primary) !important;
+    font-weight: 500;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-assigned {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    color: var(--brand-secondary);
+    border: 1px solid var(--brand-secondary);
+}
+
+.status-staffcompleted {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    color: #856404;
+    border: 1px solid #ffc107;
+}
+
+.status-managercompleted {
+    background: linear-gradient(135deg, #cce5ff 0%, #b3d9ff 100%);
+    color: #0056b3;
+    border: 1px solid #17a2b8;
+}
+
+.status-readyforcollaboration {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    border: 1px solid #28a745;
+}
+
+.status-completed {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    color: #495057;
+    border: 1px solid #6c757d;
+}
+
+.status-waiting {
+    background: linear-gradient(135deg, #cce5ff 0%, #b3d9ff 100%);
+    color: #0056b3;
+    border: 1px solid #17a2b8;
+}
+
+/* Date Styling */
+.date-text {
+    color: #495057;
+    font-weight: 500;
+}
+
+.completed-date {
+    color: #28a745;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.pending-status {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.modern-action-btn {
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.modern-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modern-btn {
+    border-radius: 20px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--brand-primary);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
+}
+
+.modern-btn:hover {
+    background: white;
+    color: var(--brand-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+}
+
+/* Waiting Status */
+.waiting-status {
+    text-align: center;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: var(--brand-primary);
+    opacity: 0.3;
+}
+
+.empty-state-title {
+    color: var(--brand-secondary);
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.empty-state-text {
+    margin-bottom: 2rem;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+}
+
+/* Progress Card Styling */
+.card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.card-body {
+    padding: 2rem;
+}
+
+/* Alert Improvements */
+.alert {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    color: var(--brand-secondary);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: var(--brand-primary);
+}
+
+/* Modal Improvements */
+.modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
+    border: none;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+}
+
+/* Form Improvements */
+.form-select, .form-control {
+    border-radius: 12px;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 133, 99, 0.1);
+}
+
+/* Responsive Design */
+@@media (max-width: 768px) {
+    .modern-card-header {
+        padding: 1rem 1.5rem;
+    }
+    
+    .modern-table td {
+        padding: 1rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .modern-table thead th {
+        padding: 1rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .modern-action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .staff-info strong {
+        font-size: 0.9rem;
+    }
+    
+    .period-info strong {
+        font-size: 1rem;
+    }
+}
+
+/* Animations */
+@@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modern-card {
+    animation: fadeInUp 0.4s ease;
+}
+
+.table-row {
+    animation: fadeInUp 0.3s ease;
+}
+</style>

@@ -1,0 +1,870 @@
+@model InfoPoint.Areas.PDRs.Controllers.PDRCompletionViewModel
+@{
+    ViewData["Title"] = $"{Model.ResponseType} PDR Completion - {Model.PDR.Staff.FullName} ({Model.PDR.Year})";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Dashboard" asp-area="">Home</a></li>
+        <li class="breadcrumb-item"><a asp-controller="PDRs" asp-action="Index">PDRs</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Complete PDR</li>
+    </ol>
+</nav>
+
+<div class="container">
+    <h1>PDR Completion - @Model.ResponseType Review</h1>
+    <div class="row">
+        <div class="col-md-8">
+            <div class="alert alert-info">
+                <h5><i class="bi bi-person-circle me-2"></i>@Model.PDR.Staff.FullName</h5>
+                <p class="mb-0">
+                    <strong>Year:</strong> @Model.PDR.Year | 
+                    <strong>Role:</strong> @Model.PDR.Staff.JobTitle | 
+                    <strong>Area:</strong> @Model.PDR.Staff.Area<br/>
+                    <small class="text-info"><strong>Debug:</strong> ResponseType = @Model.ResponseType</small>
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6>Progress</h6>
+                    <div class="progress mb-2">
+                        <div class="progress-bar" role="progressbar" style="width: 0%" id="progressBar">0%</div>
+                    </div>
+                    <small class="text-muted" id="progressText">Loading...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="pdrForm">
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="pdrId" value="@Model.PDR.Id" />
+        <input type="hidden" id="responseType" value="@Model.ResponseType" />
+        
+        <div class="question-carousel">
+            @{
+                var questionIndex = 0;
+                var allQuestions = new List<(dynamic Question, string Category, int GlobalIndex)>();
+                
+                foreach (var category in Model.Questions.GroupBy(q => q.Category))
+                {
+                    foreach (var question in category.OrderBy(q => q.Order))
+                    {
+                        var shouldShowQuestion = Model.ResponseType == PDRType.Staff || 
+                                                (Model.ResponseType == PDRType.Manager && question.HasManagerQuestion);
+                        if (shouldShowQuestion)
+                        {
+                            allQuestions.Add((question, category.Key, questionIndex++));
+                        }
+                    }
+                }
+            }
+            
+            @foreach (var (question, category, index) in allQuestions)
+            {
+                var existingResponse = Model.Responses.FirstOrDefault(r => r.QuestionId == question.Id && r.ResponseType == Model.ResponseType);
+                var questionText = Model.ResponseType == PDRType.Staff ? 
+                                 question.StaffQuestionText : 
+                                 question.ManagerQuestionText;
+                var isFirstInCategory = index == 0 || allQuestions[index - 1].Category != category;
+                
+                <div class="question-slide" data-question-index="@index" data-question-id="@question.Id" data-category="@category" style="display: @(index == 0 ? "block" : "none")">
+                    @if (isFirstInCategory)
+                    {
+                        <div class="category-intro">
+                            <h2 class="category-title">@category</h2>
+                            <div class="category-divider"></div>
+                        </div>
+                    }
+                    
+                    <div class="question-content">
+                        <h3 class="question-text">@questionText</h3>
+                        @if (!string.IsNullOrEmpty(question.Description))
+                        {
+                            <p class="question-description">@question.Description</p>
+                        }
+                        
+                        <div class="rating-section">
+                            <div class="star-rating-large" data-question-id="@question.Id" data-rating="@(existingResponse?.Rating ?? 0)">
+                                <span class="star-large" data-value="1">★</span>
+                                <span class="star-large" data-value="2">★</span>
+                                <span class="star-large" data-value="3">★</span>
+                                <span class="star-large" data-value="4">★</span>
+                                <span class="star-large" data-value="5">★</span>
+                            </div>
+                            <p class="rating-text-large"></p>
+                        </div>
+                        
+                        <div class="response-container-centered" data-question-id="@question.Id" style="display: @(existingResponse?.Rating > 0 ? "block" : "none")">
+                            <textarea class="form-control response-textarea-large" 
+                                      rows="6" 
+                                      placeholder="Please share your thoughts..."
+                                      data-question-id="@question.Id">@(existingResponse?.Response ?? "")</textarea>
+                            <div class="save-indicator" data-question-id="@question.Id"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="navigation-buttons">
+                        @if (index > 0)
+                        {
+                            <button type="button" class="btn btn-outline-secondary btn-lg prev-btn" data-target="@(index - 1)">
+                                <i class="bi bi-arrow-left me-2"></i>Previous
+                            </button>
+                        }
+                        
+                        @if (index < allQuestions.Count - 1)
+                        {
+                            <button type="button" class="btn btn-primary btn-lg next-btn ms-auto" data-target="@(index + 1)">
+                                Next<i class="bi bi-arrow-right ms-2"></i>
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-success btn-lg ms-auto" id="reviewBtn">
+                                Review & Complete<i class="bi bi-check-circle ms-2"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+            
+            <div class="question-slide review-slide" data-question-index="review" style="display: none;">
+                <div class="review-content">
+                    <h2 class="text-center mb-4">Review Your PDR</h2>
+                    <div class="review-summary" id="reviewSummary">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    <div class="text-center mt-5">
+                        <button type="button" class="btn btn-outline-secondary btn-lg" id="backToQuestionsBtn">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Questions
+                        </button>
+                        <button type="button" class="btn btn-success btn-lg ms-3" id="completePDRBtn">
+                            <i class="bi bi-check-circle me-2"></i>Submit @Model.ResponseType PDR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pdrId = document.getElementById('pdrId').value;
+    const responseType = document.getElementById('responseType').value;
+    let currentQuestionIndex = 0;
+    const totalQuestions = document.querySelectorAll('.question-slide:not(.review-slide)').length;
+    
+    // Initialize
+    initializeStarRatings();
+    initializeNavigation();
+    initializeAutoSave();
+    updateProgress();
+    
+    function initializeStarRatings() {
+        document.querySelectorAll('.star-rating-large').forEach(ratingContainer => {
+            const questionId = ratingContainer.dataset.questionId;
+            const currentRating = parseInt(ratingContainer.dataset.rating) || 0;
+            const stars = ratingContainer.querySelectorAll('.star-large');
+            const ratingText = ratingContainer.nextElementSibling;
+            
+            // Set initial rating
+            updateStarDisplay(stars, currentRating, ratingText);
+            
+            stars.forEach((star, index) => {
+                const rating = index + 1;
+                
+                // Hover effects
+                star.addEventListener('mouseenter', () => {
+                    highlightStars(stars, rating);
+                });
+                
+                star.addEventListener('mouseleave', () => {
+                    const currentRating = parseInt(ratingContainer.dataset.rating) || 0;
+                    updateStarDisplay(stars, currentRating, ratingText);
+                });
+                
+                // Click to set rating
+                star.addEventListener('click', () => {
+                    ratingContainer.dataset.rating = rating;
+                    updateStarDisplay(stars, rating, ratingText);
+                    
+                    // Show the response textarea with animation
+                    const responseContainer = document.querySelector(`.response-container-centered[data-question-id="${questionId}"]`);
+                    if (responseContainer) {
+                        responseContainer.style.display = 'block';
+                        responseContainer.classList.add('fade-in');
+                        
+                        // Focus on the textarea for better UX
+                        const textarea = responseContainer.querySelector('.response-textarea-large');
+                        if (textarea) {
+                            setTimeout(() => textarea.focus(), 300);
+                        }
+                    }
+                    
+                    saveResponse(questionId);
+                });
+            });
+        });
+    }
+    
+    function initializeNavigation() {
+        // Previous buttons
+        document.querySelectorAll('.prev-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetIndex = parseInt(this.dataset.target);
+                navigateToQuestion(targetIndex);
+            });
+        });
+        
+        // Next buttons
+        document.querySelectorAll('.next-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetIndex = parseInt(this.dataset.target);
+                navigateToQuestion(targetIndex);
+            });
+        });
+        
+        // Review button
+        const reviewBtn = document.getElementById('reviewBtn');
+        if (reviewBtn) {
+            reviewBtn.addEventListener('click', function() {
+                showReviewPage();
+            });
+        }
+        
+        // Back to questions from review
+        const backBtn = document.getElementById('backToQuestionsBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', function() {
+                navigateToQuestion(totalQuestions - 1);
+            });
+        }
+    }
+    
+    function initializeAutoSave() {
+        document.querySelectorAll('.response-textarea-large').forEach(textarea => {
+            let saveTimer;
+            
+            textarea.addEventListener('input', function() {
+                clearTimeout(saveTimer);
+                const questionId = this.dataset.questionId;
+                const indicator = document.querySelector(`.save-indicator[data-question-id="${questionId}"]`);
+                
+                if (indicator) {
+                    indicator.innerHTML = '<small class="text-muted">Typing...</small>';
+                }
+                
+                saveTimer = setTimeout(() => {
+                    saveResponse(questionId);
+                }, 1000); // Auto-save after 1 second of no typing
+            });
+            
+            textarea.addEventListener('blur', function() {
+                clearTimeout(saveTimer);
+                saveResponse(this.dataset.questionId);
+            });
+        });
+    }
+    
+    function navigateToQuestion(index) {
+        // Hide all slides
+        document.querySelectorAll('.question-slide').forEach(slide => {
+            slide.style.display = 'none';
+            slide.classList.remove('slide-in-right', 'slide-in-left');
+        });
+        
+        // Show target slide with animation
+        const targetSlide = document.querySelector(`[data-question-index="${index}"]`);
+        if (targetSlide) {
+            targetSlide.style.display = 'block';
+            
+            // Add animation class based on direction
+            if (index > currentQuestionIndex) {
+                targetSlide.classList.add('slide-in-right');
+            } else {
+                targetSlide.classList.add('slide-in-left');
+            }
+            
+            currentQuestionIndex = index;
+            updateProgress();
+        }
+    }
+    
+    function showReviewPage() {
+        // Hide all question slides
+        document.querySelectorAll('.question-slide').forEach(slide => {
+            slide.style.display = 'none';
+        });
+        
+        // Populate review summary
+        const summaryDiv = document.getElementById('reviewSummary');
+        let summaryHTML = '';
+        let currentCategory = '';
+        
+        document.querySelectorAll('.question-slide:not(.review-slide)').forEach((slide, index) => {
+            const questionId = slide.dataset.questionId;
+            const category = slide.dataset.category;
+            const questionText = slide.querySelector('.question-text').textContent;
+            const rating = document.querySelector(`.star-rating-large[data-question-id="${questionId}"]`).dataset.rating || 0;
+            const response = document.querySelector(`.response-textarea-large[data-question-id="${questionId}"]`).value.trim();
+            
+            if (category !== currentCategory) {
+                if (currentCategory !== '') {
+                    summaryHTML += '</div>';
+                }
+                summaryHTML += `<div class="category-section"><h4>${category}</h4>`;
+                currentCategory = category;
+            }
+            
+            summaryHTML += `
+                <div class="review-item ${rating > 0 ? 'completed' : 'incomplete'}">
+                    <p class="review-question">${questionText}</p>
+                    <div class="review-rating">Rating: ${rating > 0 ? '★'.repeat(rating) : 'Not rated'}</div>
+                    <div class="review-response">${response || '<em>No response provided</em>'}</div>
+                </div>
+            `;
+        });
+        
+        if (currentCategory !== '') {
+            summaryHTML += '</div>';
+        }
+        
+        summaryDiv.innerHTML = summaryHTML;
+        
+        // Show review slide
+        document.querySelector('.review-slide').style.display = 'block';
+        document.querySelector('.review-slide').classList.add('fade-in');
+    }
+    
+    function highlightStars(stars, rating) {
+        stars.forEach((star, index) => {
+            star.classList.toggle('active', index < rating);
+        });
+    }
+    
+    function updateStarDisplay(stars, rating, ratingText) {
+        highlightStars(stars, rating);
+        
+        const ratingLabels = ['', 'Poor', 'Below Average', 'Average', 'Good', 'Excellent'];
+        if (ratingText) {
+            ratingText.textContent = rating > 0 ? `${ratingLabels[rating]}` : '';
+        }
+    }
+    
+    function saveResponse(questionId) {
+        const responseTextarea = document.querySelector(`.response-textarea-large[data-question-id="${questionId}"]`);
+        const starRating = document.querySelector(`.star-rating-large[data-question-id="${questionId}"]`);
+        const indicator = document.querySelector(`.save-indicator[data-question-id="${questionId}"]`);
+        
+        const response = responseTextarea ? responseTextarea.value.trim() : '';
+        const rating = starRating ? parseInt(starRating.dataset.rating) || null : null;
+        
+        // Don't save if neither rating nor response is provided
+        if (!rating && !response) {
+            return;
+        }
+        
+        if (indicator) {
+            indicator.innerHTML = '<small class="text-info">Saving...</small>';
+        }
+        
+        const formData = new FormData();
+        formData.append('pdrId', pdrId);
+        formData.append('questionId', questionId);
+        formData.append('responseType', responseType);
+        formData.append('response', response);
+        if (rating) formData.append('rating', rating);
+        formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+        
+        fetch('@Url.Action("SaveResponse", "PDRs", new { area = "PDRs" })', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (indicator) {
+                    indicator.innerHTML = '<small class="text-success"><i class="bi bi-check-circle"></i> Saved</small>';
+                    setTimeout(() => {
+                        indicator.innerHTML = '';
+                    }, 3000);
+                }
+                updateProgress();
+            } else {
+                if (indicator) {
+                    indicator.innerHTML = '<small class="text-danger">Error saving</small>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            if (indicator) {
+                indicator.innerHTML = '<small class="text-danger">Error saving</small>';
+            }
+        });
+    }
+    
+    function updateProgress() {
+        const completedQuestions = Array.from(document.querySelectorAll('.star-rating-large'))
+            .filter(rating => parseInt(rating.dataset.rating) > 0).length;
+        
+        const percentage = Math.round((completedQuestions / totalQuestions) * 100);
+        
+        document.getElementById('progressBar').style.width = percentage + '%';
+        document.getElementById('progressBar').textContent = percentage + '%';
+        
+        const currentSlideNum = currentQuestionIndex + 1;
+        document.getElementById('progressText').textContent = 
+            currentQuestionIndex === 'review' 
+                ? 'Review' 
+                : `Question ${currentSlideNum} of ${totalQuestions}`;
+    }
+    
+    // Complete PDR
+    document.getElementById('completePDRBtn').addEventListener('click', function() {
+        const completedQuestions = Array.from(document.querySelectorAll('.star-rating-large'))
+            .filter(rating => parseInt(rating.dataset.rating) > 0).length;
+        
+        if (completedQuestions < totalQuestions) {
+            if (!confirm(`You have only completed ${completedQuestions} out of ${totalQuestions} questions. Are you sure you want to submit the PDR?`)) {
+                return;
+            }
+        }
+        
+        if (confirm(`Submit your ${responseType} PDR? This action cannot be undone.`)) {
+            const formData = new FormData();
+            formData.append('pdrId', pdrId);
+            formData.append('responseType', responseType);
+            formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+            
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+            
+            fetch('@Url.Action("CompletePDR", "PDRs", new { area = "PDRs" })', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '@Url.Action("Index", "PDRs", new { area = "PDRs" })';
+                } else {
+                    alert('Error completing PDR. Please try again.');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-check-circle me-2"></i>Submit ' + responseType + ' PDR';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error completing PDR. Please try again.');
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-check-circle me-2"></i>Submit ' + responseType + ' PDR';
+            });
+        }
+    });
+});
+</script>
+
+<style>
+/* Modern card design */
+.card {
+    border: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 1.5rem;
+}
+
+.card-header h5 {
+    color: white;
+    font-weight: 600;
+    margin: 0;
+}
+
+.card-body {
+    padding: 2rem;
+}
+
+/* Question Carousel */
+.question-carousel {
+    max-width: 900px;
+    margin: 0 auto;
+    min-height: 600px;
+    position: relative;
+}
+
+.question-slide {
+    animation: fadeIn 0.4s ease;
+}
+
+.question-content {
+    text-align: center;
+    padding: 3rem 2rem;
+}
+
+.question-text {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.question-description {
+    font-size: 1.1rem;
+    color: #718096;
+    margin-bottom: 3rem;
+}
+
+/* Category Intro */
+.category-intro {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: slideDown 0.5s ease;
+}
+
+.category-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+}
+
+.category-divider {
+    width: 100px;
+    height: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin: 0 auto;
+    border-radius: 2px;
+}
+
+/* Large Star Rating */
+.rating-section {
+    margin: 3rem 0;
+}
+
+.star-rating-large {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 2rem 0;
+}
+
+.star-large {
+    font-size: 60px;
+    color: #e0e6ed;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.star-large:hover {
+    color: #ffc107;
+    transform: scale(1.2) translateY(-5px);
+    text-shadow: 0 5px 20px rgba(255, 193, 7, 0.4);
+}
+
+.star-large.active {
+    color: #ffc107;
+    transform: scale(1.1);
+    text-shadow: 0 3px 15px rgba(255, 193, 7, 0.3);
+}
+
+.star-large.active:hover {
+    color: #ff8f00;
+}
+
+.rating-text-large {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #4a5568;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+/* Response Container */
+.response-container-centered {
+    max-width: 700px;
+    margin: 2rem auto;
+    opacity: 0;
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.response-container-centered.fade-in {
+    opacity: 1;
+}
+
+.response-textarea-large {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    border-radius: 12px;
+    border: 2px solid #e8ecf4;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    resize: vertical;
+}
+
+.response-textarea-large:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.save-indicator {
+    text-align: center;
+    margin-top: 1rem;
+    min-height: 24px;
+}
+
+/* Navigation Buttons */
+.navigation-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3rem;
+    padding: 0 2rem;
+}
+
+.navigation-buttons .btn {
+    min-width: 150px;
+}
+
+/* Review Page */
+.review-content {
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.review-summary {
+    margin: 2rem 0;
+}
+
+.category-section {
+    margin-bottom: 2rem;
+}
+
+.category-section h4 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.review-item {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border-left: 4px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.review-item.completed {
+    border-left-color: #4facfe;
+}
+
+.review-item.incomplete {
+    border-left-color: #ff6b6b;
+    background: #fff5f5;
+}
+
+.review-question {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+}
+
+.review-rating {
+    color: #ffc107;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.review-response {
+    color: #4a5568;
+    line-height: 1.6;
+}
+
+/* Form controls */
+.form-control {
+    border-radius: 8px;
+    border: 2px solid #e8ecf4;
+    padding: 12px 16px;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Buttons */
+.btn {
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    border: none;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+}
+
+.btn-outline-secondary {
+    border: 2px solid #cbd5e0;
+    color: #4a5568;
+    background: transparent;
+}
+
+.btn-outline-secondary:hover {
+    background: #e2e8f0;
+    border-color: #a0aec0;
+    transform: translateY(-2px);
+}
+
+/* Progress bar */
+.progress {
+    height: 10px;
+    border-radius: 10px;
+    background: #e8ecf4;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+    border-radius: 10px;
+    transition: width 0.4s ease;
+}
+
+/* Alert styling */
+.alert-info {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    border: none;
+    border-radius: 12px;
+    color: #1565c0;
+}
+
+/* Animations */
+@@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-in-right {
+    animation: slideInRight 0.4s ease;
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.4s ease;
+}
+
+@@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 2rem;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "→";
+    color: #6c757d;
+}
+
+/* Responsive Design */
+@@media (max-width: 768px) {
+    .star-large {
+        font-size: 45px;
+    }
+    
+    .question-text {
+        font-size: 1.4rem;
+    }
+    
+    .category-title {
+        font-size: 2rem;
+    }
+    
+    .navigation-buttons {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .navigation-buttons .btn {
+        width: 100%;
+    }
+}
+</style>

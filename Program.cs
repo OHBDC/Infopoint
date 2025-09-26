@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using InfoPoint.Data;
 using InfoPoint.Models;
 using InfoPoint.Data.Seeders;
+using InfoPoint.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 
@@ -51,6 +52,9 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddControllersWithViews();
 
+// Add PDR service
+builder.Services.AddScoped<IPDRService, PDRService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -82,8 +86,11 @@ app.MapControllerRoute(
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var pdrService = scope.ServiceProvider.GetRequiredService<IPDRService>();
     context.Database.EnsureCreated();
     await StaffSeeder.SeedAsync(context);
+    await pdrService.SeedQuestionsAsync();
+    await PDRSeeder.SeedAsync(context);
 }
 
 app.Run();

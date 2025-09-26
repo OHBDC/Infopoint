@@ -203,6 +203,38 @@ namespace InfoPoint.Data.Seeders
                     Email = "carol.morris@g.bdc.ac.uk", StaffReference = "12345802",
                     Area = "Facilities", ManagerEmail = "steve.hughes@g.bdc.ac.uk",
                     JobTitle = "Cleaning Supervisor", IsActive = true
+                },
+
+                // Add Oliver Hill for testing - make him a manager
+                new Staff
+                {
+                    FirstName = "Oliver", LastName = "Hill",
+                    Email = "oliver.hill@g.bdc.ac.uk", StaffReference = "12345105",
+                    Area = "Computing & IT", ManagerEmail = "james.anderson@g.bdc.ac.uk",
+                    JobTitle = "Senior Software Developer", IsActive = true
+                },
+                
+                // Add some staff who report to Oliver
+                new Staff
+                {
+                    FirstName = "John", LastName = "Smith",
+                    Email = "john.smith@g.bdc.ac.uk", StaffReference = "12345106",
+                    Area = "Computing & IT", ManagerEmail = "oliver.hill@g.bdc.ac.uk",
+                    JobTitle = "Junior Software Developer", IsActive = true
+                },
+                new Staff
+                {
+                    FirstName = "Emily", LastName = "Johnson",
+                    Email = "emily.johnson@g.bdc.ac.uk", StaffReference = "12345107",
+                    Area = "Computing & IT", ManagerEmail = "oliver.hill@g.bdc.ac.uk",
+                    JobTitle = "Web Developer", IsActive = true
+                },
+                new Staff
+                {
+                    FirstName = "Alex", LastName = "Davis",
+                    Email = "alex.davis@g.bdc.ac.uk", StaffReference = "12345108",
+                    Area = "Computing & IT", ManagerEmail = "oliver.hill@g.bdc.ac.uk",
+                    JobTitle = "Software Tester", IsActive = true
                 }
             };
 

@@ -1,0 +1,49 @@
+@{
+    ViewData["Title"] = "Not Authorized";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Dashboard" asp-area="">Home</a></li>
+        <li class="breadcrumb-item"><a asp-controller="PDRs" asp-action="Index">PDRs</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Not Authorized</li>
+    </ol>
+</nav>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-shield-exclamation display-1 text-warning mb-4"></i>
+                    <h2 class="card-title">Access Not Authorized</h2>
+                    <p class="card-text lead">
+                        You are not registered as a staff member in the system.
+                    </p>
+                    <p class="card-text">
+                        Your email address <strong>@User.Identity?.Name</strong> is not found in our staff database.
+                    </p>
+                    <hr class="my-4">
+                    <p class="mb-4">
+                        If you believe this is an error, please contact your system administrator to:
+                    </p>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check2 text-success me-2"></i>Add your email to the staff database</li>
+                        <li><i class="bi bi-check2 text-success me-2"></i>Verify your role and permissions</li>
+                        <li><i class="bi bi-check2 text-success me-2"></i>Ensure your manager information is correct</li>
+                    </ul>
+                    
+                    <div class="mt-4">
+                        <a asp-controller="Home" asp-action="Dashboard" asp-area="" class="btn btn-primary">
+                            <i class="bi bi-house me-2"></i>Return to Dashboard
+                        </a>
+                        <a asp-controller="Account" asp-action="Logout" asp-area="" class="btn btn-outline-secondary ms-2">
+                            <i class="bi bi-box-arrow-right me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
