@@ -14,11 +14,13 @@ namespace InfoPoint.Areas.PDRs.Controllers
     {
         private readonly IPDRService _pdrService;
         private readonly ApplicationDbContext _context;
+        private readonly IOpenAIService _openAIService;
 
-        public PDRsController(IPDRService pdrService, ApplicationDbContext context)
+        public PDRsController(IPDRService pdrService, ApplicationDbContext context, IOpenAIService openAIService)
         {
             _pdrService = pdrService;
             _context = context;
+            _openAIService = openAIService;
         }
 
         public async Task<IActionResult> Index()
@@ -180,10 +182,83 @@ namespace InfoPoint.Areas.PDRs.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CompleteCollaborative(int pdrId)
+        public async Task<IActionResult> CompleteCollaborative(int pdrId, string smartTargets)
         {
-            await _pdrService.CompletePDRStageAsync(pdrId, PDRStatus.Completed);
-            return RedirectToAction("Index");
+            try
+            {
+                // Parse and save smart targets
+                if (!string.IsNullOrEmpty(smartTargets))
+                {
+                    var targets = System.Text.Json.JsonSerializer.Deserialize<List<SmartTargetDto>>(smartTargets);
+                    if (targets != null && targets.Count >= 2)
+                    {
+                        foreach (var target in targets)
+                        {
+                            var smartTarget = new SmartTarget
+                            {
+                                PDRId = pdrId,
+                                Title = target.Title,
+                                Description = target.Description,
+                                Priority = target.Priority,
+                                Category = target.Category,
+                                TargetDate = DateTime.Parse(target.TargetDate),
+                                SuccessCriteria = target.SuccessCriteria,
+                                ActionPlan = target.ActionPlan,
+                                Specific = target.Specific,
+                                Measurable = target.Measurable,
+                                Achievable = target.Achievable,
+                                Relevant = target.Relevant,
+                                TimeBound = target.TimeBound,
+                                DisplayOrder = target.DisplayOrder,
+                                CreatedDate = DateTime.UtcNow,
+                                IsActive = true,
+                                Status = "Pending"
+                            };
+
+                            _context.SmartTargets.Add(smartTarget);
+                        }
+
+                        await _context.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        return Json(new { success = false, message = "At least 2 SMART targets are required." });
+                    }
+                }
+
+                await _pdrService.CompletePDRStageAsync(pdrId, PDRStatus.Completed);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> EnhanceSmartTarget([FromBody] EnhanceTargetRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Target))
+                {
+                    return Json(new { success = false, message = "Target text is required" });
+                }
+
+                var enhancedTarget = await _openAIService.EnhanceSmartTarget(request.Target);
+                return Json(new { success = true, enhancedTarget });
+            }
+            catch (Exception ex)
+            {
+                // Log the full error for debugging
+                Console.WriteLine($"Error enhancing target: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
+                return Json(new { success = false, message = "Unable to enhance target at this time. Please try again later." });
+            }
         }
 
         [HttpPost]
@@ -298,5 +373,27 @@ namespace InfoPoint.Areas.PDRs.Controllers
         public IEnumerable<PDRComparison> Comparisons { get; set; } = new List<PDRComparison>();
         public bool IsStaffMember { get; set; }
         public bool IsManager { get; set; }
+    }
+
+    public class SmartTargetDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Priority { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string TargetDate { get; set; } = string.Empty;
+        public string? SuccessCriteria { get; set; }
+        public string? ActionPlan { get; set; }
+        public bool Specific { get; set; }
+        public bool Measurable { get; set; }
+        public bool Achievable { get; set; }
+        public bool Relevant { get; set; }
+        public bool TimeBound { get; set; }
+        public int DisplayOrder { get; set; }
+    }
+
+    public class EnhanceTargetRequest
+    {
+        public string Target { get; set; } = string.Empty;
     }
 }

@@ -16,6 +16,7 @@ namespace InfoPoint.Data
         public DbSet<PDRQuestion> PDRQuestions { get; set; }
         public DbSet<PDRResponse> PDRResponses { get; set; }
         public DbSet<PDRComparison> PDRComparisons { get; set; }
+        public DbSet<SmartTarget> SmartTargets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -95,6 +96,24 @@ namespace InfoPoint.Data
                 entity.Property(e => e.CollaborativeResponse).HasColumnType("TEXT");
                 entity.Property(e => e.ComparisonNotes).HasMaxLength(500);
                 entity.HasIndex(e => new { e.PDRId, e.QuestionId }).IsUnique();
+            });
+
+            // Configure SmartTarget entity
+            builder.Entity<SmartTarget>(entity =>
+            {
+                entity.HasOne(e => e.PDR)
+                    .WithMany(p => p.SmartTargets)
+                    .HasForeignKey(e => e.PDRId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.Description).IsRequired().HasColumnType("TEXT");
+                entity.Property(e => e.Priority).HasMaxLength(50);
+                entity.Property(e => e.Category).HasMaxLength(100);
+                entity.Property(e => e.Status).HasMaxLength(50);
+                entity.Property(e => e.SuccessCriteria).HasColumnType("TEXT");
+                entity.Property(e => e.ActionPlan).HasColumnType("TEXT");
+                entity.HasIndex(e => new { e.PDRId, e.DisplayOrder });
             });
         }
     }

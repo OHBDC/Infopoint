@@ -60,6 +60,8 @@ namespace InfoPoint.Models
         public DateTime? LastUpdated { get; set; }
 
         public ICollection<PDRResponse> Responses { get; set; } = new List<PDRResponse>();
+        
+        public ICollection<SmartTarget> SmartTargets { get; set; } = new List<SmartTarget>();
     }
 
     public class PDRQuestion

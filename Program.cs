@@ -55,6 +55,9 @@ builder.Services.AddControllersWithViews();
 // Add PDR service
 builder.Services.AddScoped<IPDRService, PDRService>();
 
+// Add OpenAI service with HttpClient
+builder.Services.AddHttpClient<IOpenAIService, OpenAIService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

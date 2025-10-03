@@ -280,6 +280,36 @@
         
         @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
         {
+            <!-- Smart Targets Section -->
+            <div class="smart-targets-section mt-5">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="bi bi-target me-2"></i>SMART Targets
+                    </h3>
+                    <p class="section-subtitle">Set targets for @Model.PDR.Staff.FullName</p>
+                    <div class="smart-definition">
+                        <small class="text-muted">
+                            <strong>S</strong>pecific • <strong>M</strong>easurable • <strong>A</strong>chievable • <strong>R</strong>elevant • <strong>T</strong>ime-bound
+                        </small>
+                    </div>
+                </div>
+                
+                <div id="smartTargetsContainer" class="smart-targets-container">
+                    <!-- Smart targets will be dynamically added here -->
+                </div>
+                
+                <div class="text-center mt-3">
+                    <button type="button" class="btn btn-outline-primary" id="addSmartTargetBtn">
+                        <i class="bi bi-plus-circle me-2"></i>Add SMART Target
+                    </button>
+                </div>
+                
+                <div class="alert alert-info mt-3" id="smartTargetRequirement">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Minimum 2 SMART targets</strong> must be set before finalizing the PDR.
+                </div>
+            </div>
+            
             <div class="text-center mt-4">
                 <button type="button" class="btn btn-success btn-lg" id="completeCollaborativeBtn">
                     <i class="bi bi-check-circle me-2"></i>Finalize PDR
@@ -364,6 +394,72 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     initializeTableInteractions();
     initializeModal();
+    
+    // Enhancement confirmation dialog function
+    function showEnhancementConfirmation(originalText, enhancedText, callback) {
+        const modal = document.getElementById('enhancementModal');
+        if (!modal) {
+            // Create modal if it doesn't exist
+            const modalHtml = `
+                <div class="modal fade" id="enhancementModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-magic me-2"></i>AI Enhancement Preview
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="enhancement-comparison">
+                                    <div class="original-target mb-3">
+                                        <h6 class="text-muted">Original Target:</h6>
+                                        <div class="target-content" id="originalTargetContent"></div>
+                                    </div>
+                                    <div class="enhanced-target">
+                                        <h6 class="text-success">Enhanced SMART Target:</h6>
+                                        <div class="target-content enhanced" id="enhancedTargetContent"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x-circle me-1"></i>Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary" id="confirmEnhancementBtn">
+                                    <i class="bi bi-check-circle me-1"></i>Apply Enhancement
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        
+        // Update content
+        document.getElementById('originalTargetContent').textContent = originalText;
+        document.getElementById('enhancedTargetContent').textContent = enhancedText;
+        
+        // Show modal
+        const enhancementModal = new bootstrap.Modal(document.getElementById('enhancementModal'));
+        enhancementModal.show();
+        
+        // Handle confirmation
+        const confirmBtn = document.getElementById('confirmEnhancementBtn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        newConfirmBtn.addEventListener('click', function() {
+            enhancementModal.hide();
+            callback(true);
+        });
+        
+        // Handle modal hidden event
+        document.getElementById('enhancementModal').addEventListener('hidden.bs.modal', function() {
+            callback(false);
+        }, { once: true });
+    }
     
     function initializeTableInteractions() {
         // Handle resolve difference buttons
@@ -515,6 +611,221 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Smart Targets functionality
+    let smartTargetCount = 0;
+    const smartTargetsContainer = document.getElementById('smartTargetsContainer');
+    const addSmartTargetBtn = document.getElementById('addSmartTargetBtn');
+    
+    if (addSmartTargetBtn) {
+        addSmartTargetBtn.addEventListener('click', function() {
+            addSmartTarget();
+        });
+    }
+    
+    function addSmartTarget(existingTarget = null) {
+        smartTargetCount++;
+        const targetId = existingTarget ? existingTarget.id : `new_${smartTargetCount}`;
+        
+        const targetHtml = `
+            <div class="smart-target-card" data-target-id="${targetId}">
+                <div class="smart-target-header">
+                    <h5 class="smart-target-title">
+                        <i class="bi bi-bullseye me-2"></i>SMART Target ${smartTargetCount}
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-target-btn">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Target Title</label>
+                    <input type="text" class="form-control smart-target-title-input" placeholder="Enter a clear, specific target title..." value="${existingTarget ? existingTarget.title : ''}">
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Target Date</label>
+                        <input type="date" class="form-control smart-target-date" value="${existingTarget ? existingTarget.targetDate : ''}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Category</label>
+                        <select class="form-select smart-target-category">
+                            <option value="Performance">Performance</option>
+                            <option value="Development">Development</option>
+                            <option value="Wellbeing">Wellbeing</option>
+                            <option value="Skills">Skills</option>
+                            <option value="Leadership">Leadership</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">SMART Target Details</label>
+                    <div class="position-relative">
+                        <textarea class="form-control smart-target-details" rows="4" placeholder="Describe the target including how success will be measured and key steps to achieve it...">${existingTarget ? (existingTarget.successCriteria || '') + (existingTarget.actionPlan ? '\n' + existingTarget.actionPlan : '') : ''}</textarea>
+                        <button type="button" class="btn btn-sm btn-outline-primary enhance-ai-btn" title="Enhance with AI">
+                            <i class="bi bi-magic"></i> Enhance with AI
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const targetElement = document.createElement('div');
+        targetElement.innerHTML = targetHtml;
+        const targetCard = targetElement.firstElementChild;
+        smartTargetsContainer.appendChild(targetCard);
+        
+        // Add remove functionality
+        const removeBtn = targetCard.querySelector('.remove-target-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                if (smartTargetsContainer.children.length > 1 || confirm('Are you sure you want to remove this target?')) {
+                    targetCard.remove();
+                    updateTargetNumbers();
+                    validateSmartTargets();
+                }
+            });
+        }
+        
+        // Add validation listeners
+        const inputs = targetCard.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            input.addEventListener('change', validateSmartTargets);
+            input.addEventListener('input', validateSmartTargets);
+        });
+        
+        // Add enhance with AI functionality
+        const enhanceBtn = targetCard.querySelector('.enhance-ai-btn');
+        const detailsTextarea = targetCard.querySelector('.smart-target-details');
+        
+        enhanceBtn.addEventListener('click', async function() {
+            const currentText = detailsTextarea.value.trim();
+            
+            if (!currentText) {
+                alert('Please enter some target details first before enhancing.');
+                return;
+            }
+            
+            // Disable button and show loading
+            enhanceBtn.disabled = true;
+            const originalHtml = enhanceBtn.innerHTML;
+            enhanceBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enhancing...';
+            
+            try {
+                const response = await fetch('@Url.Action("EnhanceSmartTarget", "PDRs", new { area = "PDRs" })', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: JSON.stringify({ target: currentText })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show confirmation dialog
+                    showEnhancementConfirmation(currentText, data.enhancedTarget, (confirmed) => {
+                        if (confirmed) {
+                            detailsTextarea.value = data.enhancedTarget;
+                            validateSmartTargets();
+                            
+                            // Add a subtle animation to show the text has been updated
+                            detailsTextarea.style.backgroundColor = 'rgba(0, 133, 99, 0.1)';
+                            setTimeout(() => {
+                                detailsTextarea.style.backgroundColor = '';
+                            }, 1000);
+                        }
+                    });
+                } else {
+                    alert(data.message || 'Unable to enhance target. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error enhancing target:', error);
+                alert('Error connecting to the enhancement service. Please try again.');
+            } finally {
+                enhanceBtn.disabled = false;
+                enhanceBtn.innerHTML = originalHtml;
+            }
+        });
+        
+        validateSmartTargets();
+    }
+    
+    function updateTargetNumbers() {
+        const targets = smartTargetsContainer.querySelectorAll('.smart-target-card');
+        targets.forEach((target, index) => {
+            const title = target.querySelector('.smart-target-title');
+            title.innerHTML = `<i class="bi bi-bullseye me-2"></i>SMART Target ${index + 1}`;
+        });
+        smartTargetCount = targets.length;
+    }
+    
+    function validateSmartTargets() {
+        const targets = smartTargetsContainer.querySelectorAll('.smart-target-card');
+        const completeBtn = document.getElementById('completeCollaborativeBtn');
+        const requirement = document.getElementById('smartTargetRequirement');
+        
+        let validTargets = 0;
+        targets.forEach(target => {
+            const title = target.querySelector('.smart-target-title-input').value.trim();
+            const date = target.querySelector('.smart-target-date').value;
+            
+            if (title && date) {
+                validTargets++;
+                target.classList.add('valid');
+                target.classList.remove('invalid');
+            } else {
+                target.classList.add('invalid');
+                target.classList.remove('valid');
+            }
+        });
+        
+        if (validTargets >= 2) {
+            completeBtn.disabled = false;
+            requirement.classList.remove('alert-info');
+            requirement.classList.add('alert-success');
+            requirement.innerHTML = '<i class="bi bi-check-circle me-2"></i><strong>Requirement met!</strong> You have set ' + validTargets + ' valid SMART targets.';
+        } else {
+            completeBtn.disabled = true;
+            requirement.classList.remove('alert-success');
+            requirement.classList.add('alert-info');
+            requirement.innerHTML = '<i class="bi bi-info-circle me-2"></i><strong>Minimum 2 SMART targets</strong> must be set before finalizing the PDR. Currently: ' + validTargets + ' valid targets.';
+        }
+    }
+    
+    function getSmartTargetsData() {
+        const targets = [];
+        const targetCards = smartTargetsContainer.querySelectorAll('.smart-target-card');
+        
+        targetCards.forEach((card, index) => {
+            const details = card.querySelector('.smart-target-details').value.trim();
+            const target = {
+                title: card.querySelector('.smart-target-title-input').value.trim(),
+                description: '', // Empty since we removed description
+                priority: 'Medium', // Default priority since we removed the dropdown
+                category: card.querySelector('.smart-target-category').value,
+                targetDate: card.querySelector('.smart-target-date').value,
+                successCriteria: details, // Combined details go into success criteria
+                actionPlan: '', // Empty since we're using combined field
+                specific: true, // Default to true since we removed checkboxes
+                measurable: true,
+                achievable: true,
+                relevant: true,
+                timeBound: true,
+                displayOrder: index
+            };
+            
+            if (target.title && target.targetDate) {
+                targets.push(target);
+            }
+        });
+        
+        return targets;
+    }
+    
     // Complete collaborative PDR
     const completeBtn = document.getElementById('completeCollaborativeBtn');
     if (completeBtn) {
@@ -528,9 +839,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
+            // Validate smart targets
+            const smartTargets = getSmartTargetsData();
+            if (smartTargets.length < 2) {
+                alert('Please set at least 2 SMART targets before finalizing the PDR.');
+                return;
+            }
+            
             if (confirm('Finalize the PDR? This action cannot be undone and will complete the review process.')) {
                 const formData = new FormData();
                 formData.append('pdrId', pdrId);
+                formData.append('smartTargets', JSON.stringify(smartTargets));
                 formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
                 
                 this.disabled = true;
@@ -1442,6 +1761,202 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .response-comparison .col-md-6 {
         margin-bottom: 1rem;
+    }
+}
+
+/* Smart Targets Section */
+.smart-targets-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    padding: 3rem;
+    border-radius: 16px;
+    border: 2px solid var(--brand-primary);
+    box-shadow: 0 4px 20px rgba(0, 133, 99, 0.1);
+}
+
+.smart-targets-container {
+    margin: 2rem 0;
+}
+
+.smart-target-card {
+    background: white;
+    border: 2px solid #e8ecf4;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.smart-target-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.smart-target-card.valid {
+    border-color: var(--brand-primary);
+    background: linear-gradient(135deg, rgba(0, 133, 99, 0.02) 0%, rgba(0, 165, 119, 0.02) 100%);
+}
+
+.smart-target-card.invalid {
+    border-color: #ffc107;
+}
+
+.smart-target-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f8f9fa;
+}
+
+.smart-target-title {
+    color: var(--brand-secondary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.remove-target-btn {
+    padding: 0.25rem 0.5rem;
+}
+
+.smart-definition {
+    margin-top: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(0, 133, 99, 0.05);
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.smart-definition small {
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+
+.smart-definition strong {
+    color: var(--brand-primary);
+    font-weight: 700;
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.section-header .section-title {
+    color: var(--brand-secondary);
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.section-header .section-subtitle {
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+
+#addSmartTargetBtn {
+    background: white;
+    border: 2px solid var(--brand-primary);
+    color: var(--brand-primary);
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    transition: all 0.3s ease;
+}
+
+#addSmartTargetBtn:hover {
+    background: var(--brand-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 133, 99, 0.3);
+}
+
+.smart-target-card textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.smart-target-card .form-control:focus,
+.smart-target-card .form-select:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(0, 133, 99, 0.1);
+}
+
+.enhance-ai-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: white;
+    border: 1px solid var(--brand-primary);
+    color: var(--brand-primary);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.enhance-ai-btn:hover {
+    background: var(--brand-primary);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 133, 99, 0.2);
+}
+
+.enhance-ai-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.smart-target-details {
+    padding-bottom: 45px; /* Make room for the enhance button */
+    transition: background-color 0.3s ease;
+}
+
+/* Enhancement Modal Styles */
+.enhancement-comparison {
+    padding: 1rem;
+}
+
+.target-content {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.target-content.enhanced {
+    background: linear-gradient(135deg, rgba(0, 133, 99, 0.05) 0%, rgba(0, 165, 119, 0.05) 100%);
+    border-color: var(--brand-primary);
+}
+
+#enhancementModal .modal-header {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    color: white;
+}
+
+#enhancementModal .modal-header .btn-close {
+    filter: invert(1);
+}
+
+/* Responsive adjustments for smart targets */
+@@media (max-width: 768px) {
+    .smart-targets-section {
+        padding: 2rem 1rem;
+    }
+    
+    .smart-target-card {
+        padding: 1.5rem 1rem;
+    }
+    
+    .smart-criteria-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .section-header .section-title {
+        font-size: 1.5rem;
     }
 }
 </style>
