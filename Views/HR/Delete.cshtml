@@ -1,0 +1,69 @@
+@model InfoPoint.Models.StaffHR
+
+@{
+    ViewData["Title"] = "Delete Staff Member";
+}
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-4 text-danger">Delete Staff Member</h1>
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">Confirm Deletion</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Warning:</strong> Are you sure you want to delete this staff member? This action cannot be undone.
+                    </div>
+
+                    <dl class="row">
+                        <dt class="col-sm-4">Employee Number</dt>
+                        <dd class="col-sm-8">@Model.EmployeeNumber</dd>
+
+                        <dt class="col-sm-4">Full Name</dt>
+                        <dd class="col-sm-8">@Model.FullName</dd>
+
+                        <dt class="col-sm-4">Job Title</dt>
+                        <dd class="col-sm-8">@Model.JobTitle</dd>
+
+                        <dt class="col-sm-4">Contract Type</dt>
+                        <dd class="col-sm-8">@Model.ContractType</dd>
+
+                        @if (!string.IsNullOrEmpty(Model.HierarchyLevel2))
+                        {
+                            <dt class="col-sm-4">Department</dt>
+                            <dd class="col-sm-8">@Model.HierarchyLevel2</dd>
+                        }
+
+                        @if (!string.IsNullOrEmpty(Model.ManagerName))
+                        {
+                            <dt class="col-sm-4">Manager</dt>
+                            <dd class="col-sm-8">@Model.ManagerName</dd>
+                        }
+                    </dl>
+
+                    <form asp-action="Delete" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="Id" />
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Delete Staff Member
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

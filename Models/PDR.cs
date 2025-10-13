@@ -28,7 +28,8 @@ namespace InfoPoint.Models
         [StringLength(8)]
         public string StaffReference { get; set; } = string.Empty;
 
-        [ForeignKey("StaffReference")]
+        // Navigation property - relationship ignored in DbContext, loaded manually
+        // StaffReference (string) doesn't match Staff.Id (int), so EF can't manage this relationship
         public Staff Staff { get; set; } = null!;
 
         [Required]

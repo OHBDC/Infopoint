@@ -1,0 +1,342 @@
+@model InfoPoint.Controllers.PDRTrackingViewModel
+@{
+    ViewData["Title"] = "PDR Tracking Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@functions {
+    private string GetStatusBadgeClass(InfoPoint.Models.PDRStatus status)
+    {
+        return status switch
+        {
+            InfoPoint.Models.PDRStatus.Assigned => "bg-secondary",
+            InfoPoint.Models.PDRStatus.StaffCompleted => "bg-info",
+            InfoPoint.Models.PDRStatus.ManagerCompleted => "bg-warning",
+            InfoPoint.Models.PDRStatus.ReadyForCollaboration => "bg-primary",
+            InfoPoint.Models.PDRStatus.Completed => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetStatusDisplayName(InfoPoint.Models.PDRStatus status)
+    {
+        return status switch
+        {
+            InfoPoint.Models.PDRStatus.Assigned => "Assigned",
+            InfoPoint.Models.PDRStatus.StaffCompleted => "Staff Completed",
+            InfoPoint.Models.PDRStatus.ManagerCompleted => "Manager Completed",
+            InfoPoint.Models.PDRStatus.ReadyForCollaboration => "Ready for Collaboration",
+            InfoPoint.Models.PDRStatus.Completed => "Completed",
+            _ => status.ToString()
+        };
+    }
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Dashboard" asp-area="">Home</a></li>
+        <li class="breadcrumb-item"><a asp-controller="HR" asp-action="Index">HR Management</a></li>
+        <li class="breadcrumb-item active" aria-current="page">PDR Tracking</li>
+    </ol>
+</nav>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-clipboard-data me-2"></i>PDR Tracking Dashboard</h1>
+            <p class="text-muted mb-0">College-wide PDR progress monitoring for @Model.PeriodDisplayName @Model.Year</p>
+        </div>
+        <div>
+            <form method="get" class="row g-2">
+                <div class="col-auto">
+                    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach (var y in Model.AvailableYears)
+                        {
+                            <option value="@y" selected="@(y == Model.Year)">@y</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <select name="period" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach (var p in Model.AvailablePeriods)
+                        {
+                            var displayName = InfoPoint.Models.PDRPeriod.GetDisplayName(p);
+                            <option value="@p" selected="@(p == Model.Period)">@displayName</option>
+                        }
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Statistics Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Total Staff</p>
+                            <h3 class="mb-0">@Model.TotalStaff</h3>
+                        </div>
+                        <div class="text-primary">
+                            <i class="bi bi-people-fill fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Completed</p>
+                            <h3 class="mb-0">@Model.Completed <small class="text-muted fs-6">(@Model.CompletionRate.ToString("F1")%)</small></h3>
+                        </div>
+                        <div class="text-success">
+                            <i class="bi bi-check-circle-fill fs-1"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-2" style="height: 5px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: @Model.CompletionRate%" aria-valuenow="@Model.CompletionRate" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">No PDR Assigned</p>
+                            <h3 class="mb-0">@Model.NoPDRAssigned</h3>
+                        </div>
+                        <div class="text-danger">
+                            <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Overdue</p>
+                            <h3 class="mb-0">@Model.Overdue</h3>
+                        </div>
+                        <div class="text-warning">
+                            <i class="bi bi-clock-fill fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Breakdown -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Status Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col">
+                            <div class="border-end">
+                                <span class="badge @GetStatusBadgeClass(InfoPoint.Models.PDRStatus.Assigned) mb-2">Assigned</span>
+                                <h4 class="mb-0">@Model.Assigned</h4>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="border-end">
+                                <span class="badge @GetStatusBadgeClass(InfoPoint.Models.PDRStatus.StaffCompleted) mb-2">Staff Completed</span>
+                                <h4 class="mb-0">@Model.StaffCompleted</h4>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="border-end">
+                                <span class="badge @GetStatusBadgeClass(InfoPoint.Models.PDRStatus.ManagerCompleted) mb-2">Manager Completed</span>
+                                <h4 class="mb-0">@Model.ManagerCompleted</h4>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="border-end">
+                                <span class="badge @GetStatusBadgeClass(InfoPoint.Models.PDRStatus.ReadyForCollaboration) mb-2">Ready for Collaboration</span>
+                                <h4 class="mb-0">@Model.ReadyForCollaboration</h4>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <span class="badge @GetStatusBadgeClass(InfoPoint.Models.PDRStatus.Completed) mb-2">Completed</span>
+                            <h4 class="mb-0">@Model.Completed</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff Details Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-table me-2"></i>Staff PDR Status</h5>
+                <div>
+                    <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search staff..." style="min-width: 250px;">
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="staffTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Job Title</th>
+                            <th>Department</th>
+                            <th>Manager</th>
+                            <th>PDR Status</th>
+                            <th>Due Date</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var record in Model.TrackingRecords)
+                        {
+                            <tr class="@(record.IsOverdue ? "table-warning" : "")"
+                                data-name="@record.StaffHR.FullName.ToLower()"
+                                data-job="@(record.StaffHR.JobTitle?.ToLower() ?? "")"
+                                data-dept="@(record.StaffHR.HierarchyLevel1?.ToLower() ?? "")">
+                                <td>
+                                    <div>
+                                        <strong>@record.StaffHR.FullName</strong>
+                                        @if (record.StaffAD == null)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1" title="Not in AD">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                            </span>
+                                        }
+                                    </div>
+                                    <small class="text-muted">ID: @record.StaffHR.EmployeeNumber</small>
+                                </td>
+                                <td>@(record.StaffHR.JobTitle ?? "—")</td>
+                                <td>@(record.StaffHR.HierarchyLevel1 ?? "—")</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(record.StaffHR.ManagerName))
+                                    {
+                                        @record.StaffHR.ManagerName
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No manager assigned</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (record.HasPDR)
+                                    {
+                                        <span class="badge @GetStatusBadgeClass(record.Status)">
+                                            @GetStatusDisplayName(record.Status)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">No PDR Assigned</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (record.PDR?.DueDate.HasValue == true)
+                                    {
+                                        <span class="@(record.IsOverdue ? "text-danger fw-bold" : "")">
+                                            @record.PDR.DueDate.Value.ToString("MMM dd, yyyy")
+                                            @if (record.IsOverdue)
+                                            {
+                                                <i class="bi bi-exclamation-circle-fill"></i>
+                                            }
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (record.HasPDR)
+                                    {
+                                        var progress = record.Status switch
+                                        {
+                                            InfoPoint.Models.PDRStatus.Assigned => 20,
+                                            InfoPoint.Models.PDRStatus.StaffCompleted => 40,
+                                            InfoPoint.Models.PDRStatus.ManagerCompleted => 60,
+                                            InfoPoint.Models.PDRStatus.ReadyForCollaboration => 80,
+                                            InfoPoint.Models.PDRStatus.Completed => 100,
+                                            _ => 0
+                                        };
+                                        var progressColor = progress == 100 ? "success" : progress >= 60 ? "primary" : progress >= 40 ? "info" : "secondary";
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-@progressColor" role="progressbar" style="width: @progress%" aria-valuenow="@progress" aria-valuemin="0" aria-valuemax="100">
+                                                @progress%
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-danger" role="progressbar" style="width: 100%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                                Not Started
+                                            </div>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        transition: transform 0.2s;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+    }
+
+    .table tbody tr {
+        cursor: default;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#staffTable tbody tr');
+
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            const job = row.getAttribute('data-job');
+            const dept = row.getAttribute('data-dept');
+            const text = name + ' ' + job + ' ' + dept;
+
+            if (text.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+</script>

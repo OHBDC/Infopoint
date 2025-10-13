@@ -1,0 +1,146 @@
+@using InfoPoint.Controllers
+@model List<SimilarDepartmentGroup>
+
+@{
+    ViewData["Title"] = "Department Analysis - Lecturers";
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-4">Department Analysis - Lecturers</h1>
+            <p class="lead">Review similar department names for Lecturers and identify potential duplicates or formatting issues</p>
+            <p class="text-muted">Analyzing <strong>@ViewBag.TotalLecturers</strong> lecturer records</p>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col">
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Staff List
+            </a>
+        </div>
+    </div>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> <strong>Great!</strong> No similar or problematic department names found for Lecturers.
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Found <strong>@Model.Count</strong> groups of similar or problematic department names.
+        </div>
+
+        @foreach (var group in Model)
+        {
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Similar Department Group - <strong>@group.TotalEmployees</strong> employees affected
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Department Name</th>
+                                    <th>Hierarchy Level</th>
+                                    <th>Usage Count</th>
+                                    <th>Employee Numbers</th>
+                                    <th>Issues</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var dept in group.Departments)
+                                {
+                                    var hasTrailingSpace = dept.Name != dept.Name.Trim();
+                                    var hasDoubleSpace = dept.Name.Contains("  ");
+                                    var hasSpecialChars = dept.Name.Any(c => !char.IsLetterOrDigit(c) && !char.IsWhiteSpace(c) && c != '&' && c != '-' && c != '/');
+                                    var hasIssues = hasTrailingSpace || hasDoubleSpace || hasSpecialChars;
+
+                                    <tr class="@(hasIssues ? "table-warning" : "")">
+                                        <td>
+                                            <code>@dept.Name</code>
+                                            @if (hasTrailingSpace)
+                                            {
+                                                <span class="badge bg-warning text-dark ms-2" title="Has leading/trailing spaces">Spaces</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">Level @dept.Level</span>
+                                        </td>
+                                        <td>
+                                            <strong>@dept.Count</strong>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                @if (dept.EmployeeNumbers.Count <= 5)
+                                                {
+                                                    @string.Join(", ", dept.EmployeeNumbers)
+                                                }
+                                                else
+                                                {
+                                                    @string.Join(", ", dept.EmployeeNumbers.Take(5))
+                                                    <text>... and @(dept.EmployeeNumbers.Count - 5) more</text>
+                                                }
+                                            </small>
+                                        </td>
+                                        <td>
+                                            @if (hasTrailingSpace)
+                                            {
+                                                <span class="badge bg-warning text-dark">Trailing/Leading Spaces</span>
+                                            }
+                                            @if (hasDoubleSpace)
+                                            {
+                                                <span class="badge bg-warning text-dark">Double Spaces</span>
+                                            }
+                                            @if (hasSpecialChars)
+                                            {
+                                                <span class="badge bg-warning text-dark">Special Characters</span>
+                                            }
+                                            @if (!hasIssues && group.Departments.Count > 1)
+                                            {
+                                                <span class="badge bg-info">Similar to others</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-light mt-3 mb-0">
+                        <strong>Recommendation:</strong>
+                        @if (group.Departments.Count > 1)
+                        {
+                            <text>
+                                These departments appear similar. Consider standardizing to:
+                                <code><strong>@group.Departments.OrderByDescending(d => d.Count).First().Name.Trim()</strong></code>
+                                (most common variant)
+                            </text>
+                        }
+                        else
+                        {
+                            <text>Clean up formatting issues in this department name.</text>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="alert alert-info mt-4">
+            <h5><i class="bi bi-lightbulb"></i> How to Fix These Issues:</h5>
+            <ol class="mb-0">
+                <li>Review each group and decide on the correct, standardized name</li>
+                <li>Update your source HR data (Excel/CSV) with the standardized names</li>
+                <li>Re-import the data using the Bulk Import feature on the main HR page</li>
+                <li>The system will update existing records based on employee numbers</li>
+            </ol>
+        </div>
+    }
+</div>

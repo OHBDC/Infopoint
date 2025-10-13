@@ -12,6 +12,8 @@ namespace InfoPoint.Data
         }
 
         public DbSet<Staff> Staff { get; set; }
+        public DbSet<StaffHR> StaffHR { get; set; }
+        public DbSet<HRAuthorizedUser> HRAuthorizedUsers { get; set; }
         public DbSet<PDR> PDRs { get; set; }
         public DbSet<PDRQuestion> PDRQuestions { get; set; }
         public DbSet<PDRResponse> PDRResponses { get; set; }
@@ -22,30 +24,33 @@ namespace InfoPoint.Data
         {
             base.OnModelCreating(builder);
 
-            // Configure Staff entity
+            // Use custom schema for Identity tables to avoid conflicts
+            builder.Entity<ApplicationUser>().ToTable("AspNetUsers", "InfoPoint");
+            builder.Entity<Microsoft.AspNetCore.Identity.IdentityRole>().ToTable("AspNetRoles", "InfoPoint");
+            builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserRole<string>>().ToTable("AspNetUserRoles", "InfoPoint");
+            builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserClaim<string>>().ToTable("AspNetUserClaims", "InfoPoint");
+            builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserLogin<string>>().ToTable("AspNetUserLogins", "InfoPoint");
+            builder.Entity<Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>>().ToTable("AspNetRoleClaims", "InfoPoint");
+            builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserToken<string>>().ToTable("AspNetUserTokens", "InfoPoint");
+
+            // Configure Staff entity (existing table in SQL Server - don't manage schema)
             builder.Entity<Staff>(entity =>
             {
-                entity.HasIndex(e => e.Email).IsUnique();
-                entity.HasIndex(e => e.StaffReference).IsUnique();
-                entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.StaffReference).IsRequired().HasMaxLength(8);
-                entity.Property(e => e.Area).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.JobTitle).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.FirstName).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.LastName).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.ManagerEmail).HasMaxLength(100);
+                entity.ToTable("Staff", t => t.ExcludeFromMigrations());
+                // Don't configure constraints - table already exists in database
             });
 
             // Configure PDR entity
             builder.Entity<PDR>(entity =>
             {
-                entity.HasOne(e => e.Staff)
-                    .WithMany()
-                    .HasForeignKey(e => e.StaffReference)
-                    .HasPrincipalKey(s => s.StaffReference)
-                    .OnDelete(DeleteBehavior.Cascade);
+                // Ignore Staff navigation property - relationship cannot be configured as FK
+                // StaffReference (string) in PDR doesn't match Staff.Id (int)
+                // Staff data should be loaded manually when needed
+                entity.Ignore(e => e.Staff);
 
-                entity.HasIndex(e => new { e.StaffReference, e.Year }).IsUnique();
+                // Unique constraint: One PDR per staff member per year and period
+                // This allows multiple PDRs per year (e.g., Oct-Dec, Feb-Mar, Jun-Jul)
+                entity.HasIndex(e => new { e.StaffReference, e.Year, e.Period }).IsUnique();
                 entity.Property(e => e.StaffReference).IsRequired().HasMaxLength(8);
             });
 
@@ -114,6 +119,34 @@ namespace InfoPoint.Data
                 entity.Property(e => e.SuccessCriteria).HasColumnType("TEXT");
                 entity.Property(e => e.ActionPlan).HasColumnType("TEXT");
                 entity.HasIndex(e => new { e.PDRId, e.DisplayOrder });
+            });
+
+            // Configure StaffHR entity
+            builder.Entity<StaffHR>(entity =>
+            {
+                entity.HasIndex(e => e.EmployeeNumber).IsUnique();
+                entity.Property(e => e.EmployeeNumber).IsRequired();
+                entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.HierarchyLevel1).HasMaxLength(200);
+                entity.Property(e => e.HierarchyLevel2).HasMaxLength(200);
+                entity.Property(e => e.HierarchyLevel3).HasMaxLength(200);
+                entity.Property(e => e.HierarchyLevel4).HasMaxLength(200);
+                entity.Property(e => e.HierarchyLevel5).HasMaxLength(200);
+                entity.Property(e => e.JobTitle).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.ContractType).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.ManagerName).HasMaxLength(200);
+
+                // Configure relationship with Staff table - make it optional (no FK constraint)
+                entity.Ignore(e => e.StaffAD);
+            });
+
+            // Configure HRAuthorizedUser entity
+            builder.Entity<HRAuthorizedUser>(entity =>
+            {
+                entity.HasIndex(e => e.Email).IsUnique();
+                entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.CreatedBy).HasMaxLength(100);
             });
         }
     }

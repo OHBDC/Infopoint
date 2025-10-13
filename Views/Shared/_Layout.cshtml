@@ -40,9 +40,32 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link text-white" asp-area="PDRs" asp-controller="PDRs" asp-action="Team">
+                                    <i class="bi bi-people-fill"></i> My Team
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link text-white" asp-controller="Staff" asp-action="Index">
                                     <i class="bi bi-people"></i> Staff Directory
                                 </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle text-white" href="#" id="hrDropdown" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-person-badge-fill"></i> HR
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="hrDropdown">
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="HR" asp-action="Index">
+                                            <i class="bi bi-person-badge"></i> HR Management
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="HR" asp-action="PDRTracking">
+                                            <i class="bi bi-clipboard-data"></i> PDR Tracking
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
                         }
                     </ul>

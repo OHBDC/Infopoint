@@ -1,0 +1,130 @@
+@model InfoPoint.Models.StaffHR
+
+@{
+    ViewData["Title"] = "Add Staff Member";
+}
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-4">Add Staff Member</h1>
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form asp-action="Create" method="post">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="EmployeeNumber" class="form-label"></label>
+                                <input asp-for="EmployeeNumber" class="form-control" />
+                                <span asp-validation-for="EmployeeNumber" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="FullName" class="form-label"></label>
+                                <input asp-for="FullName" class="form-control" />
+                                <span asp-validation-for="FullName" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="JobTitle" class="form-label"></label>
+                                <input asp-for="JobTitle" class="form-control" />
+                                <span asp-validation-for="JobTitle" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="ContractType" class="form-label"></label>
+                                <select asp-for="ContractType" class="form-select">
+                                    <option value="">Select Contract Type</option>
+                                    <option value="Lecturer">Lecturer</option>
+                                    <option value="Business Support Staff">Business Support Staff</option>
+                                    <option value="Management">Management</option>
+                                </select>
+                                <span asp-validation-for="ContractType" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <h5 class="mt-4 mb-3">Organizational Hierarchy</h5>
+
+                        <div class="mb-3">
+                            <label asp-for="HierarchyLevel1" class="form-label"></label>
+                            <input asp-for="HierarchyLevel1" class="form-control" placeholder="e.g., Principalship" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="HierarchyLevel2" class="form-label"></label>
+                            <input asp-for="HierarchyLevel2" class="form-control" placeholder="e.g., Finance & Resources" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="HierarchyLevel3" class="form-label"></label>
+                            <input asp-for="HierarchyLevel3" class="form-control" placeholder="e.g., Marketing, Communication & Admissions" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="HierarchyLevel4" class="form-label"></label>
+                            <input asp-for="HierarchyLevel4" class="form-control" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="HierarchyLevel5" class="form-label"></label>
+                            <input asp-for="HierarchyLevel5" class="form-control" />
+                        </div>
+
+                        <h5 class="mt-4 mb-3">Manager Information</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label">Manager</label>
+                            <select id="managerSelect" class="form-select">
+                                <option value="">Select Manager</option>
+                                @if (ViewBag.AllStaff != null)
+                                {
+                                    @foreach (var staff in ViewBag.AllStaff)
+                                    {
+                                        <option value="@staff.EmployeeNumber">@staff.FullName - @staff.EmployeeNumber</option>
+                                    }
+                                }
+                            </select>
+                            <input type="hidden" asp-for="ManagerEmployeeNumber" id="hiddenManagerEmployeeNumber" />
+                            <input type="hidden" asp-for="ManagerName" id="hiddenManagerName" />
+                            <small class="form-text text-muted">Optional - Select this staff member's line manager</small>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input asp-for="IsActive" class="form-check-input" type="checkbox" checked />
+                            <label asp-for="IsActive" class="form-check-label"></label>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Create Staff Member</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Sync dropdown with hidden fields
+        document.getElementById('managerSelect').addEventListener('change', function() {
+            var selectedOption = this.options[this.selectedIndex];
+            var employeeNumber = selectedOption.value;
+            var fullName = employeeNumber ? selectedOption.text.split(' - ')[0] : '';
+
+            document.getElementById('hiddenManagerEmployeeNumber').value = employeeNumber || '';
+            document.getElementById('hiddenManagerName').value = fullName;
+        });
+    </script>
+}

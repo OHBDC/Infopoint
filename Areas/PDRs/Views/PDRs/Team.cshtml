@@ -1,0 +1,296 @@
+@model TeamDashboardViewModel
+
+@{
+    ViewData["Title"] = "My Team - PDR Dashboard";
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="display-4">My Team</h1>
+            <p class="lead">Performance Development Reviews for your direct reports</p>
+        </div>
+        <div class="col-md-4 text-end align-self-center">
+            @if (Model.TeamMembers.Any())
+            {
+                <a href="@Url.Action("Index")" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Assign PDRs to Team
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewBag.Message))
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> @ViewBag.Message
+        </div>
+    }
+
+    @if (Model.TeamMembers.Any())
+    {
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Team Size</h5>
+                        <h2 class="text-primary">@Model.TotalTeamSize</h2>
+                        <small class="text-muted">Direct Reports</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Total PDRs</h5>
+                        <h2 class="text-info">@Model.TotalPDRs</h2>
+                        <small class="text-muted">For @Model.SelectedYear</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h5 class="card-title">Overdue</h5>
+                        <h2 class="text-danger">@Model.TotalOverdue</h2>
+                        <small class="text-muted">Past Due Date</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h5 class="card-title">Needs Action</h5>
+                        <h2 class="text-warning">@Model.TotalNeedsAction</h2>
+                        <small class="text-muted">Awaiting Your Response</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Year Filter -->
+        <div class="row mb-3">
+            <div class="col">
+                <div class="btn-group" role="group">
+                    @foreach (var year in Model.AvailableYears)
+                    {
+                        <a href="@Url.Action("Team", new { year = year })"
+                           class="btn @(year == Model.SelectedYear ? "btn-primary" : "btn-outline-primary")">
+                            @year
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Members Table -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Team Members</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Job Title</th>
+                                <th>Email</th>
+                                <th>PDRs</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var member in Model.TeamMembers)
+                            {
+                                var hasOverdue = member.OverduePDRs.Any();
+                                var needsAction = member.NeedsManagerAction.Any();
+                                var rowClass = hasOverdue ? "table-danger" : (needsAction ? "table-warning" : "");
+
+                                <tr class="@rowClass">
+                                    <td>
+                                        <strong>@member.StaffHR.FullName</strong>
+                                        <br />
+                                        <small class="text-muted">ID: @member.StaffHR.EmployeeNumber</small>
+                                    </td>
+                                    <td>@member.StaffHR.JobTitle</td>
+                                    <td>
+                                        @if (member.StaffAD != null)
+                                        {
+                                            <small>@member.StaffAD.Email</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Not in AD</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (member.TotalPDRs > 0)
+                                        {
+                                            <span class="badge bg-secondary">@member.TotalPDRs PDR(s)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No PDRs</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <!-- PDR Status Breakdown -->
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @if (member.AssignedCount > 0)
+                                            {
+                                                <span class="badge bg-secondary" title="Assigned">
+                                                    <i class="bi bi-clipboard"></i> @member.AssignedCount
+                                                </span>
+                                            }
+                                            @if (member.StaffCompletedCount > 0)
+                                            {
+                                                <span class="badge bg-warning text-dark" title="Staff Completed - Awaiting Manager">
+                                                    <i class="bi bi-exclamation-circle"></i> @member.StaffCompletedCount
+                                                </span>
+                                            }
+                                            @if (member.ManagerCompletedCount > 0)
+                                            {
+                                                <span class="badge bg-info" title="Manager Completed">
+                                                    <i class="bi bi-check"></i> @member.ManagerCompletedCount
+                                                </span>
+                                            }
+                                            @if (member.ReadyForCollaborationCount > 0)
+                                            {
+                                                <span class="badge bg-warning text-dark" title="Ready for Collaboration">
+                                                    <i class="bi bi-people"></i> @member.ReadyForCollaborationCount
+                                                </span>
+                                            }
+                                            @if (member.CompletedCount > 0)
+                                            {
+                                                <span class="badge bg-success" title="Completed">
+                                                    <i class="bi bi-check-circle"></i> @member.CompletedCount
+                                                </span>
+                                            }
+                                        </div>
+
+                                        <!-- Alerts -->
+                                        @if (hasOverdue)
+                                        {
+                                            <div class="mt-1">
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-exclamation-triangle"></i> @member.OverduePDRs.Count Overdue
+                                                </span>
+                                            </div>
+                                        }
+                                        @if (needsAction)
+                                        {
+                                            <div class="mt-1">
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-bell"></i> @member.NeedsManagerAction.Count Needs Action
+                                                </span>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (member.TotalPDRs > 0)
+                                        {
+                                            <!-- Show dropdown with PDRs -->
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                                    View PDRs
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    @foreach (var pdr in member.PDRs.OrderByDescending(p => p.Year).ThenByDescending(p => p.Month))
+                                                    {
+                                                        var statusBadge = pdr.Status switch
+                                                        {
+                                                            PDRStatus.Assigned => "badge bg-secondary",
+                                                            PDRStatus.StaffCompleted => "badge bg-warning text-dark",
+                                                            PDRStatus.ManagerCompleted => "badge bg-info",
+                                                            PDRStatus.ReadyForCollaboration => "badge bg-warning text-dark",
+                                                            PDRStatus.Completed => "badge bg-success",
+                                                            _ => "badge bg-secondary"
+                                                        };
+
+                                                        var isOverdue = pdr.DueDate.HasValue && pdr.DueDate.Value < DateTime.Now && pdr.Status != PDRStatus.Completed;
+
+                                                        <li>
+                                                            <a class="dropdown-item @(isOverdue ? "text-danger" : "")"
+                                                               href="@Url.Action("Complete", new { id = pdr.Id, type = PDRType.Manager })">
+                                                                <div class="d-flex justify-content-between align-items-center">
+                                                                    <span>
+                                                                        @if (!string.IsNullOrEmpty(pdr.Period))
+                                                                        {
+                                                                            @pdr.Period
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            @($"{pdr.Year}/{pdr.Month:D2}")
+                                                                        }
+                                                                    </span>
+                                                                    <span class="@statusBadge ms-2">@pdr.Status</span>
+                                                                </div>
+                                                                @if (isOverdue)
+                                                                {
+                                                                    <small class="text-danger">
+                                                                        <i class="bi bi-exclamation-circle"></i> Overdue
+                                                                    </small>
+                                                                }
+                                                            </a>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary" disabled>
+                                                No PDRs
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Legend -->
+        <div class="row mt-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Status Legend</h6>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div>
+                                <span class="badge bg-secondary"><i class="bi bi-clipboard"></i></span>
+                                <small class="ms-1">Assigned - Staff not started</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-circle"></i></span>
+                                <small class="ms-1">Staff Completed - Awaiting your review</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-info"><i class="bi bi-check"></i></span>
+                                <small class="ms-1">Manager Completed - Ready for collaboration</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-warning text-dark"><i class="bi bi-people"></i></span>
+                                <small class="ms-1">Ready for Collaboration - Final review needed</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i></span>
+                                <small class="ms-1">Completed - PDR finalized</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info mt-4">
+            <h5><i class="bi bi-info-circle"></i> No Team Members</h5>
+            <p>You currently don't have any direct reports assigned in the HR system. If you believe this is incorrect, please contact HR.</p>
+        </div>
+    }
+</div>

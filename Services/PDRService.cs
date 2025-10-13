@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using InfoPoint.Data;
 using InfoPoint.Models;
+using InfoPoint.Extensions;
 
 namespace InfoPoint.Services
 {
@@ -29,15 +30,39 @@ namespace InfoPoint.Services
 
         public async Task<PDR> AssignPDRAsync(string staffReference, int year, int month = 0, string period = "", DateTime? dueDate = null)
         {
-            if (month == 0)
-                month = DateTime.Now.Month;
+            // Smart period detection: if no period provided, get current period
+            if (string.IsNullOrEmpty(period))
+            {
+                period = PDRPeriod.GetCurrentPeriod();
+            }
 
+            // Validate period
+            if (!PDRPeriod.IsValidPeriod(period))
+            {
+                throw new ArgumentException($"Invalid PDR period: {period}. Must be one of: {string.Join(", ", PDRPeriod.AllPeriods)}");
+            }
+
+            // Set month based on period start month if not provided
+            if (month == 0)
+            {
+                month = PDRPeriod.GetStartMonth(period);
+            }
+
+            // Check for existing PDR with same staff, year, and period
             var existingPDR = await _context.PDRs
-                .FirstOrDefaultAsync(p => p.StaffReference == staffReference && p.Year == year && p.Month == month);
-            
+                .FirstOrDefaultAsync(p => p.StaffReference == staffReference &&
+                                        p.Year == year &&
+                                        p.Period == period);
+
             if (existingPDR != null)
             {
                 return existingPDR;
+            }
+
+            // Set due date based on period if not provided
+            if (!dueDate.HasValue)
+            {
+                dueDate = PDRPeriod.GetDueDate(period, year);
             }
 
             var pdr = new PDR
@@ -45,10 +70,10 @@ namespace InfoPoint.Services
                 StaffReference = staffReference,
                 Year = year,
                 Month = month,
-                Period = string.IsNullOrEmpty(period) ? null : period,
+                Period = period,
                 Status = PDRStatus.Assigned,
                 AssignedDate = DateTime.UtcNow,
-                DueDate = dueDate ?? DateTime.UtcNow.AddDays(30)
+                DueDate = dueDate.Value
             };
 
             _context.PDRs.Add(pdr);
@@ -58,30 +83,100 @@ namespace InfoPoint.Services
 
         public async Task<PDR?> GetPDRAsync(string staffReference, int year)
         {
-            return await _context.PDRs
-                .Include(p => p.Staff)
+            var pdr = await _context.PDRs
                 .Include(p => p.Responses)
                     .ThenInclude(r => r.Question)
                 .FirstOrDefaultAsync(p => p.StaffReference == staffReference && p.Year == year);
+
+            if (pdr != null)
+            {
+                await LoadStaffAsync(pdr);
+            }
+
+            return pdr;
         }
 
         public async Task<IEnumerable<PDR>> GetStaffPDRsAsync(string staffReference)
         {
-            return await _context.PDRs
-                .Include(p => p.Staff)
+            var pdrs = await _context.PDRs
                 .Where(p => p.StaffReference == staffReference)
                 .OrderByDescending(p => p.Year)
                 .ToListAsync();
+
+            await LoadStaffForPDRsAsync(pdrs);
+
+            return pdrs;
         }
 
         public async Task<IEnumerable<PDR>> GetManagerPDRsAsync(string managerEmail)
         {
-            return await _context.PDRs
-                .Include(p => p.Staff)
-                .Where(p => p.Staff.ManagerEmail == managerEmail)
-                .OrderByDescending(p => p.Year)
-                .ThenBy(p => p.Staff.LastName)
+            // Get current user's employee number from their email
+            // Use FindByEmailAsync to handle @bdc.ac.uk / @g.bdc.ac.uk equivalence
+            var manager = await _context.Staff.FindByEmailAsync(managerEmail);
+
+            Console.WriteLine($"DEBUG GetManagerPDRsAsync: Looking for manager with email={managerEmail}");
+            if (manager == null)
+            {
+                Console.WriteLine($"DEBUG GetManagerPDRsAsync: Manager not found!");
+                return new List<PDR>();
+            }
+            Console.WriteLine($"DEBUG GetManagerPDRsAsync: Found manager ID={manager.Id}, Name={manager.FullName}");
+
+            // Get all staff who report to this manager from HR hierarchy system
+            // This uses the proper organizational structure from StaffHR table
+            var directReports = await _context.StaffHR
+                .Where(hr => hr.ManagerEmployeeNumber == manager.Id && hr.IsActive)
                 .ToListAsync();
+
+            Console.WriteLine($"DEBUG GetManagerPDRsAsync: Found {directReports.Count} direct reports from HR system");
+
+            // If no direct reports in HR system, fall back to old AD Manager field
+            // This ensures backwards compatibility
+            if (!directReports.Any())
+            {
+                var staffMembersAD = await _context.Staff
+                    .Where(s => s.Manager == managerEmail)
+                    .ToListAsync();
+
+                var staffReferencesAD = staffMembersAD
+                    .Select(s => s.Id.ToString().PadLeft(8, '0'))
+                    .ToList();
+
+                var pdrsAD = await _context.PDRs
+                    .Where(p => staffReferencesAD.Contains(p.StaffReference))
+                    .OrderByDescending(p => p.Year)
+                    .ToListAsync();
+
+                await LoadStaffForPDRsAsync(pdrsAD);
+
+                return pdrsAD
+                    .OrderByDescending(p => p.Year)
+                    .ThenBy(p => p.Staff?.LastName ?? "")
+                    .ToList();
+            }
+
+            // Get staff references from HR system
+            var staffReferences = directReports
+                .Select(s => s.EmployeeNumber.ToString().PadLeft(8, '0'))
+                .ToList();
+
+            Console.WriteLine($"DEBUG GetManagerPDRsAsync: Staff references: {string.Join(", ", staffReferences)}");
+
+            // Get PDRs for those staff members
+            var pdrs = await _context.PDRs
+                .Where(p => staffReferences.Contains(p.StaffReference))
+                .OrderByDescending(p => p.Year)
+                .ToListAsync();
+
+            Console.WriteLine($"DEBUG GetManagerPDRsAsync: Found {pdrs.Count} PDRs for these staff members");
+
+            await LoadStaffForPDRsAsync(pdrs);
+
+            // Sort by year then last name
+            return pdrs
+                .OrderByDescending(p => p.Year)
+                .ThenBy(p => p.Staff?.LastName ?? "")
+                .ToList();
         }
 
         public async Task<PDRResponse> SaveResponseAsync(int pdrId, int questionId, PDRType responseType, string response, int? rating = null, string? notes = null)
@@ -188,7 +283,20 @@ namespace InfoPoint.Services
 
         public async Task ResetTestPDRsAsync()
         {
-            await Data.Seeders.TestPDRSeeder.ResetAndSeedTestPDRsAsync(_context);
+            // Delete all PDR-related data to allow fresh assignments
+            var smartTargets = await _context.SmartTargets.ToListAsync();
+            _context.SmartTargets.RemoveRange(smartTargets);
+
+            var comparisons = await _context.PDRComparisons.ToListAsync();
+            _context.PDRComparisons.RemoveRange(comparisons);
+
+            var responses = await _context.PDRResponses.ToListAsync();
+            _context.PDRResponses.RemoveRange(responses);
+
+            var pdrs = await _context.PDRs.ToListAsync();
+            _context.PDRs.RemoveRange(pdrs);
+
+            await _context.SaveChangesAsync();
         }
 
         public async Task SeedQuestionsAsync()
@@ -292,6 +400,51 @@ namespace InfoPoint.Services
 
             _context.PDRQuestions.AddRange(questions);
             await _context.SaveChangesAsync();
+        }
+
+        // Helper methods to manually load Staff navigation property
+        private async Task LoadStaffAsync(PDR pdr)
+        {
+            if (!string.IsNullOrEmpty(pdr.StaffReference))
+            {
+                // StaffReference is 8-digit padded string, need to convert to int
+                if (int.TryParse(pdr.StaffReference, out int staffId))
+                {
+                    pdr.Staff = (await _context.Staff.FindAsync(staffId))!;
+                }
+            }
+        }
+
+        private async Task LoadStaffForPDRsAsync(IEnumerable<PDR> pdrs)
+        {
+            var staffReferences = pdrs
+                .Where(p => !string.IsNullOrEmpty(p.StaffReference))
+                .Select(p => p.StaffReference)
+                .Distinct()
+                .ToList();
+
+            var staffIds = staffReferences
+                .Select(sr => int.TryParse(sr, out int id) ? id : 0)
+                .Where(id => id > 0)
+                .ToList();
+
+            var staffMembers = await _context.Staff
+                .Where(s => staffIds.Contains(s.Id))
+                .ToListAsync();
+
+            var staffLookup = staffMembers.ToDictionary(
+                s => s.Id.ToString().PadLeft(8, '0'),
+                s => s
+            );
+
+            foreach (var pdr in pdrs)
+            {
+                if (!string.IsNullOrEmpty(pdr.StaffReference) &&
+                    staffLookup.TryGetValue(pdr.StaffReference, out var staff))
+                {
+                    pdr.Staff = staff;
+                }
+            }
         }
     }
 }

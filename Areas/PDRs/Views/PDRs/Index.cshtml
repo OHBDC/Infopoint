@@ -42,7 +42,7 @@
 <div class="container">
     <h1>Performance Development Reviews</h1>
     <p class="lead">Welcome @Model.Staff.FullName, manage your PDRs and review your team's performance.</p>
-    
+
     @if (User.Identity.Name == "oliver.hill@g.bdc.ac.uk")
     {
         <div class="alert alert-warning mb-4">
@@ -53,28 +53,131 @@
             </a>
         </div>
     }
-    
+
     @{
-        bool hasManagerResponsibilities = Model.ManagerPDRs.Any();
+        bool hasManagerResponsibilities = Model.HasTeamMembers;
     }
 
-    <!-- Manager's Team PDRs (Show first if user is a manager) -->
+    <!-- Tab Navigation -->
     @if (hasManagerResponsibilities)
     {
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="modern-card">
-                    <div class="modern-card-header team-header">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="bi bi-people me-2"></i>Team PDRs</h5>
-                            <button type="button" class="btn btn-light btn-sm modern-btn" onclick="showAssignPDRModal()">
-                                <i class="bi bi-plus-circle me-1"></i>Assign PDR to Team
-                            </button>
+        <ul class="nav nav-pills pdr-tabs mb-4" id="pdrTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="team-tab" data-bs-toggle="tab" data-bs-target="#team-pdrs" type="button" role="tab">
+                    <i class="bi bi-people-fill me-2"></i>
+                    <span>Team PDRs</span>
+                    @if (Model.ManagerStats.TotalPDRs > 0)
+                    {
+                        <span class="badge bg-white text-primary ms-2">@Model.ManagerStats.TotalPDRs</span>
+                    }
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="personal-tab" data-bs-toggle="tab" data-bs-target="#personal-pdrs" type="button" role="tab">
+                    <i class="bi bi-person-fill me-2"></i>
+                    <span>My PDRs</span>
+                    @if (Model.StaffStats.TotalPDRs > 0)
+                    {
+                        <span class="badge bg-white text-primary ms-2">@Model.StaffStats.TotalPDRs</span>
+                    }
+                </button>
+            </li>
+        </ul>
+    }
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="pdrTabContent">
+        <!-- Team PDRs Tab -->
+        @if (hasManagerResponsibilities)
+        {
+            <div class="tab-pane fade show active" id="team-pdrs" role="tabpanel">
+                <!-- Summary Statistics Cards -->
+                @if (Model.ManagerStats.TotalPDRs > 0)
+                {
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="mb-3"><i class="bi bi-graph-up me-2"></i>Team Overview</h5>
+                        </div>
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-value">@Model.ManagerStats.TotalPDRs</div>
+                                <div class="stats-label">Total PDRs</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <div class="stats-card stats-assigned">
+                                <div class="stats-value">@Model.ManagerStats.Assigned</div>
+                                <div class="stats-label">Assigned</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <div class="stats-card stats-staff">
+                                <div class="stats-value">@Model.ManagerStats.StaffCompleted</div>
+                                <div class="stats-label">Awaiting Review</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <div class="stats-card stats-collab">
+                                <div class="stats-value">@Model.ManagerStats.ReadyForCollaboration</div>
+                                <div class="stats-label">In Progress</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <div class="stats-card stats-completed">
+                                <div class="stats-value">@Model.ManagerStats.Completed</div>
+                                <div class="stats-label">Completed</div>
+                            </div>
                         </div>
                     </div>
+                }
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="modern-card">
+                            <div class="modern-card-header team-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Team PDRs</h5>
+                                    <button type="button" class="btn btn-light btn-sm modern-btn" onclick="showAssignPDRModal()">
+                                        <i class="bi bi-plus-circle me-1"></i>Assign PDR to Team
+                                    </button>
+                                </div>
+                            </div>
                     <div class="modern-card-body">
+                        <!-- Filter Controls -->
+                        <div class="filter-controls p-3 border-bottom">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Search Staff</label>
+                                    <input type="text" id="teamSearchInput" class="form-control form-control-sm" placeholder="Search by name or job title...">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted mb-1">Filter by Year</label>
+                                    <select id="teamYearFilter" class="form-select form-select-sm">
+                                        <option value="all">All Years</option>
+                                        @foreach (var year in Model.AvailableYears)
+                                        {
+                                            <option value="@year" selected="@(year == Model.CurrentYear)">@year</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small text-muted mb-1">Filter by Status</label>
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <input type="radio" class="btn-check" name="teamStatusFilter" id="teamStatusAll" value="all" checked>
+                                        <label class="btn btn-outline-secondary" for="teamStatusAll">All</label>
+
+                                        <input type="radio" class="btn-check" name="teamStatusFilter" id="teamStatusActive" value="active">
+                                        <label class="btn btn-outline-primary" for="teamStatusActive">Active</label>
+
+                                        <input type="radio" class="btn-check" name="teamStatusFilter" id="teamStatusCompleted" value="completed">
+                                        <label class="btn btn-outline-success" for="teamStatusCompleted">Completed</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="modern-table-container">
-                            <table class="table modern-table">
+                            <table class="table modern-table" id="teamPDRsTable">
                                 <thead>
                                     <tr>
                                         <th><i class="bi bi-person me-2"></i>Staff Member</th>
@@ -89,11 +192,17 @@
                                 <tbody>
                                     @foreach (var pdr in Model.ManagerPDRs)
                                     {
-                                        <tr class="table-row">
+                                        var staffName = pdr.Staff?.FullName ?? "Unknown Staff";
+                                        var jobTitle = pdr.Staff?.JobTitle ?? "Unknown Title";
+                                        <tr class="table-row team-pdr-row"
+                                            data-staff-name="@staffName.ToLower()"
+                                            data-job-title="@jobTitle.ToLower()"
+                                            data-year="@pdr.Year"
+                                            data-status="@pdr.Status.ToString().ToLower()">
                                             <td>
                                                 <div class="staff-info">
-                                                    <strong>@pdr.Staff.FullName</strong>
-                                                    <small class="d-block text-muted">@pdr.Staff.JobTitle</small>
+                                                    <strong>@staffName</strong>
+                                                    <small class="d-block text-muted">@jobTitle</small>
                                                 </div>
                                             </td>
                                             <td>
@@ -186,42 +295,70 @@
                                     }
                                 </tbody>
                             </table>
+                            <div id="teamNoResults" class="text-center p-4 d-none">
+                                <i class="bi bi-search text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No PDRs match your filters</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    }
+        </div>
+        }
 
-    <!-- Staff's Own PDRs -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="modern-card @(hasManagerResponsibilities ? "personal-pdrs" : "")">
-                <div class="modern-card-header @(hasManagerResponsibilities ? "personal-header" : "")">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            @if (hasManagerResponsibilities)
-                            {
-                                <i class="bi bi-person me-2"></i><span>My Personal PDRs</span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-clipboard-data me-2"></i><span>My PDRs</span>
-                            }
-                        </h5>
-                        @if (!hasManagerResponsibilities)
-                        {
-                            <button type="button" class="btn btn-light btn-sm modern-btn" onclick="showAssignPersonalPDRModal()">
-                                <i class="bi bi-plus-circle me-1"></i>Request New PDR
-                            </button>
-                        }
-                    </div>
-                </div>
+        <!-- Personal PDRs Tab -->
+        <div class="tab-pane fade @(hasManagerResponsibilities ? "" : "show active")" id="personal-pdrs" role="tabpanel">
+            <div class="row">
+                <div class="col-12">
+                    <div class="modern-card">
+                        <div class="modern-card-header personal-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-person me-2"></i><span>My Personal PDRs</span>
+                                </h5>
+                                @if (!hasManagerResponsibilities)
+                                {
+                                    <button type="button" class="btn btn-light btn-sm modern-btn" onclick="showAssignPersonalPDRModal()">
+                                        <i class="bi bi-plus-circle me-1"></i>Request New PDR
+                                    </button>
+                                }
+                            </div>
+                        </div>
                 <div class="modern-card-body">
                     @if (Model.StaffPDRs.Any())
                     {
+                        <!-- Filter Controls for Personal PDRs -->
+                        <div class="filter-controls p-3 border-bottom">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Filter by Year</label>
+                                    <select id="personalYearFilter" class="form-select form-select-sm">
+                                        <option value="all">All Years</option>
+                                        @foreach (var year in Model.AvailableYears)
+                                        {
+                                            <option value="@year" selected="@(year == Model.CurrentYear)">@year</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted mb-1">Filter by Status</label>
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <input type="radio" class="btn-check" name="personalStatusFilter" id="personalStatusAll" value="all" checked>
+                                        <label class="btn btn-outline-secondary" for="personalStatusAll">All</label>
+
+                                        <input type="radio" class="btn-check" name="personalStatusFilter" id="personalStatusActive" value="active">
+                                        <label class="btn btn-outline-primary" for="personalStatusActive">Active</label>
+
+                                        <input type="radio" class="btn-check" name="personalStatusFilter" id="personalStatusCompleted" value="completed">
+                                        <label class="btn btn-outline-success" for="personalStatusCompleted">Completed</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="modern-table-container">
-                            <table class="table modern-table">
+                            <table class="table modern-table" id="personalPDRsTable">
                                 <thead>
                                     <tr>
                                         <th><i class="bi bi-calendar me-2"></i>Period</th>
@@ -235,7 +372,9 @@
                                 <tbody>
                                     @foreach (var pdr in Model.StaffPDRs)
                                     {
-                                        <tr class="table-row">
+                                        <tr class="table-row personal-pdr-row"
+                                            data-year="@pdr.Year"
+                                            data-status="@pdr.Status.ToString().ToLower()">
                                             <td>
                                                 <div class="period-info">
                                                     <strong>@pdr.Year</strong>
@@ -343,6 +482,10 @@
                                     }
                                 </tbody>
                             </table>
+                            <div id="personalNoResults" class="text-center p-4 d-none">
+                                <i class="bi bi-search text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No PDRs match your filters</p>
+                            </div>
                         </div>
                     }
                     else
@@ -365,6 +508,7 @@
             </div>
         </div>
     </div>
+    </div> <!-- End tab-content -->
 
 </div>
 
@@ -381,33 +525,31 @@
                     <div class="mb-3">
                         <label for="pdrYear" class="form-label">Year</label>
                         <select class="form-select" id="pdrYear" required>
-                            <option value="@DateTime.Now.Year">@DateTime.Now.Year</option>
+                            <option value="@DateTime.Now.Year" selected>@DateTime.Now.Year</option>
                             <option value="@(DateTime.Now.Year + 1)">@(DateTime.Now.Year + 1)</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="pdrMonth" class="form-label">Month</label>
-                        <select class="form-select" id="pdrMonth" required>
-                            @for (int i = 1; i <= 12; i++)
+                        <label for="pdrPeriod" class="form-label">PDR Period</label>
+                        <select class="form-select" id="pdrPeriod" required>
+                            @{
+                                var currentPeriod = InfoPoint.Models.PDRPeriod.GetCurrentPeriod();
+                            }
+                            @foreach (var period in InfoPoint.Models.PDRPeriod.AllPeriods)
                             {
-                                var monthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i);
-                                var isSelected = i == DateTime.Now.Month;
-                                <option value="@i" selected="@isSelected">@monthName</option>
+                                var displayName = InfoPoint.Models.PDRPeriod.GetDisplayName(period);
+                                var isSelected = period == currentPeriod;
+                                <option value="@period" selected="@isSelected">@displayName</option>
                             }
                         </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="pdrPeriod" class="form-label">Period Description (Optional)</label>
-                        <input type="text" class="form-control" id="pdrPeriod" placeholder="e.g., Q1 Review, Mid-Year Assessment, Annual Review">
-                        <div class="form-text">This helps identify the purpose of this PDR cycle</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="pdrDueDate" class="form-label">Due Date</label>
-                        <input type="date" class="form-control" id="pdrDueDate" required>
+                        <div class="form-text">
+                            <i class="bi bi-lightbulb me-1"></i>
+                            <strong>Smart Selection:</strong> The current period is automatically selected based on today's date.
+                        </div>
                     </div>
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i>
-                        This will assign PDRs to all your team members for the selected period.
+                        This will assign PDRs to all your team members for the selected period. The due date will be automatically set to the end of the period window.
                     </div>
                 </form>
             </div>
@@ -474,7 +616,125 @@
         if (dueDateInput) {
             dueDateInput.value = defaultDueDate.toISOString().split('T')[0];
         }
+
+        // Initialize filters
+        initializeTeamFilters();
+        initializePersonalFilters();
     });
+
+    // Team PDRs filtering
+    function initializeTeamFilters() {
+        const searchInput = document.getElementById('teamSearchInput');
+        const yearFilter = document.getElementById('teamYearFilter');
+        const statusFilters = document.querySelectorAll('input[name="teamStatusFilter"]');
+
+        if (!searchInput || !yearFilter) return;
+
+        searchInput.addEventListener('input', filterTeamPDRs);
+        yearFilter.addEventListener('change', filterTeamPDRs);
+        statusFilters.forEach(filter => {
+            filter.addEventListener('change', filterTeamPDRs);
+        });
+
+        // Apply initial filter to show only current year
+        filterTeamPDRs();
+    }
+
+    function filterTeamPDRs() {
+        const searchTerm = document.getElementById('teamSearchInput')?.value.toLowerCase() || '';
+        const selectedYear = document.getElementById('teamYearFilter')?.value || 'all';
+        const selectedStatus = document.querySelector('input[name="teamStatusFilter"]:checked')?.value || 'all';
+
+        const rows = document.querySelectorAll('.team-pdr-row');
+        const noResults = document.getElementById('teamNoResults');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const staffName = row.getAttribute('data-staff-name') || '';
+            const jobTitle = row.getAttribute('data-job-title') || '';
+            const year = row.getAttribute('data-year');
+            const status = row.getAttribute('data-status') || '';
+
+            let show = true;
+
+            // Search filter
+            if (searchTerm && !staffName.includes(searchTerm) && !jobTitle.includes(searchTerm)) {
+                show = false;
+            }
+
+            // Year filter
+            if (selectedYear !== 'all' && year !== selectedYear) {
+                show = false;
+            }
+
+            // Status filter
+            if (selectedStatus === 'active' && status === 'completed') {
+                show = false;
+            } else if (selectedStatus === 'completed' && status !== 'completed') {
+                show = false;
+            }
+
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+
+        // Show/hide no results message
+        if (noResults) {
+            noResults.classList.toggle('d-none', visibleCount > 0);
+        }
+    }
+
+    // Personal PDRs filtering
+    function initializePersonalFilters() {
+        const yearFilter = document.getElementById('personalYearFilter');
+        const statusFilters = document.querySelectorAll('input[name="personalStatusFilter"]');
+
+        if (!yearFilter) return;
+
+        yearFilter.addEventListener('change', filterPersonalPDRs);
+        statusFilters.forEach(filter => {
+            filter.addEventListener('change', filterPersonalPDRs);
+        });
+
+        // Apply initial filter to show only current year
+        filterPersonalPDRs();
+    }
+
+    function filterPersonalPDRs() {
+        const selectedYear = document.getElementById('personalYearFilter')?.value || 'all';
+        const selectedStatus = document.querySelector('input[name="personalStatusFilter"]:checked')?.value || 'all';
+
+        const rows = document.querySelectorAll('.personal-pdr-row');
+        const noResults = document.getElementById('personalNoResults');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const year = row.getAttribute('data-year');
+            const status = row.getAttribute('data-status') || '';
+
+            let show = true;
+
+            // Year filter
+            if (selectedYear !== 'all' && year !== selectedYear) {
+                show = false;
+            }
+
+            // Status filter
+            if (selectedStatus === 'active' && status === 'completed') {
+                show = false;
+            } else if (selectedStatus === 'completed' && status !== 'completed') {
+                show = false;
+            }
+
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+
+        // Show/hide no results message
+        if (noResults) {
+            noResults.classList.toggle('d-none', visibleCount > 0);
+        }
+    }
 
     function showAssignPDRModal() {
         new bootstrap.Modal(document.getElementById('assignPDRModal')).show();
@@ -486,20 +746,16 @@
 
     function assignTeamPDRs() {
         const year = document.getElementById('pdrYear').value;
-        const month = document.getElementById('pdrMonth').value;
         const period = document.getElementById('pdrPeriod').value;
-        const dueDate = document.getElementById('pdrDueDate').value;
 
-        if (!year || !month || !dueDate) {
+        if (!year || !period) {
             alert('Please fill in all required fields');
             return;
         }
 
         const formData = new FormData();
         formData.append('year', year);
-        formData.append('month', month);
         formData.append('period', period);
-        formData.append('dueDate', dueDate);
         formData.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
 
         fetch('@Url.Action("AssignTeamPDRs", "PDRs", new { area = "PDRs" })', {
@@ -510,6 +766,7 @@
         .then(data => {
             if (data.success) {
                 bootstrap.Modal.getInstance(document.getElementById('assignPDRModal')).hide();
+                alert(data.message); // Show success message with period details
                 location.reload();
             } else {
                 alert('Error: ' + data.message);
@@ -587,6 +844,172 @@
     --brand-secondary: #10375b;
     --brand-primary-light: #00a577;
     --brand-secondary-light: #1a4a6b;
+}
+
+/* Rounded Pill Tabs */
+.pdr-tabs {
+    background: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 50px;
+    display: inline-flex;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
+}
+
+.pdr-tabs .nav-item {
+    margin: 0;
+}
+
+.pdr-tabs .nav-link {
+    border-radius: 50px;
+    padding: 0.75rem 1.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    border: none;
+    background: transparent;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.pdr-tabs .nav-link:hover {
+    color: var(--brand-primary);
+    background: rgba(0, 133, 99, 0.05);
+}
+
+.pdr-tabs .nav-link.active {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 133, 99, 0.3);
+}
+
+.pdr-tabs .nav-link.active:hover {
+    background: linear-gradient(135deg, var(--brand-primary-light) 0%, var(--brand-primary) 100%);
+    color: white;
+}
+
+.pdr-tabs .nav-link i {
+    font-size: 1.1rem;
+}
+
+.pdr-tabs .nav-link .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.pdr-tabs .nav-link.active .badge {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: var(--brand-primary) !important;
+}
+
+/* Tab Content */
+.tab-content {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Statistics Cards */
+.stats-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.stats-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--brand-secondary);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.stats-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.stats-card.stats-assigned {
+    border-color: var(--brand-secondary);
+    background: linear-gradient(135deg, rgba(16, 55, 91, 0.05) 0%, rgba(16, 55, 91, 0.02) 100%);
+}
+
+.stats-card.stats-assigned .stats-value {
+    color: var(--brand-secondary);
+}
+
+.stats-card.stats-staff {
+    border-color: #ffc107;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 193, 7, 0.02) 100%);
+}
+
+.stats-card.stats-staff .stats-value {
+    color: #f59e0b;
+}
+
+.stats-card.stats-collab {
+    border-color: #17a2b8;
+    background: linear-gradient(135deg, rgba(23, 162, 184, 0.1) 0%, rgba(23, 162, 184, 0.02) 100%);
+}
+
+.stats-card.stats-collab .stats-value {
+    color: #0891b2;
+}
+
+.stats-card.stats-completed {
+    border-color: #28a745;
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(40, 167, 69, 0.02) 100%);
+}
+
+.stats-card.stats-completed .stats-value {
+    color: #16a34a;
+}
+
+/* Filter Controls */
+.filter-controls {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.filter-controls .form-control,
+.filter-controls .form-select {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    font-size: 0.9rem;
+}
+
+.filter-controls .form-control:focus,
+.filter-controls .form-select:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px rgba(0, 133, 99, 0.1);
+}
+
+.filter-controls .btn-group label {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
 }
 
 /* Modern Cards */
@@ -905,36 +1328,69 @@
 
 /* Responsive Design */
 @@media (max-width: 768px) {
+    .pdr-tabs {
+        width: 100%;
+        border-radius: 12px;
+    }
+
+    .pdr-tabs .nav-link {
+        padding: 0.65rem 1rem;
+        font-size: 0.9rem;
+        flex: 1;
+        justify-content: center;
+    }
+
+    .pdr-tabs .nav-link span {
+        display: none;
+    }
+
+    .pdr-tabs .nav-link i {
+        margin-right: 0 !important;
+        font-size: 1.25rem;
+    }
+
+    .pdr-tabs .nav-link .badge {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.25rem;
+        font-size: 0.65rem;
+        padding: 0.15rem 0.35rem;
+    }
+
     .modern-card-header {
         padding: 1rem 1.5rem;
     }
-    
+
     .modern-table td {
         padding: 1rem 0.75rem;
         font-size: 0.9rem;
     }
-    
+
     .modern-table thead th {
         padding: 1rem 0.75rem;
         font-size: 0.8rem;
     }
-    
+
     .action-buttons {
         flex-direction: column;
         gap: 0.25rem;
     }
-    
+
     .modern-action-btn {
         width: 100%;
         justify-content: center;
     }
-    
+
     .staff-info strong {
         font-size: 0.9rem;
     }
-    
+
     .period-info strong {
         font-size: 1rem;
+    }
+
+    .stats-card {
+        margin-bottom: 0.5rem;
     }
 }
 

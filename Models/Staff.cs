@@ -3,60 +3,116 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace InfoPoint.Models
 {
+    [Table("Staff")]
     public class Staff
     {
         [Key]
+        [Column("ID")]
         public int Id { get; set; }
 
-        [Required]
+        [Column("Firstname")]
         [StringLength(100)]
+        public string? Firstname { get; set; }
+
+        [Column("Surname")]
+        [StringLength(100)]
+        public string? Surname { get; set; }
+
+        [Column("Email")]
+        [StringLength(200)]
         [EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        public string? Email { get; set; }
 
-        [Required]
-        [StringLength(8, MinimumLength = 8)]
-        [Display(Name = "Staff Reference")]
-        public string StaffReference { get; set; } = string.Empty;
+        [Column("Manager")]
+        [StringLength(200)]
+        public string? Manager { get; set; }
 
-        [Required]
-        [StringLength(100)]
-        public string Area { get; set; } = string.Empty;
+        [Column("Department")]
+        [StringLength(200)]
+        public string? Department { get; set; }
 
-        [StringLength(100)]
-        [EmailAddress]
-        [Display(Name = "Manager Email")]
-        public string? ManagerEmail { get; set; }
+        [Column("JobTitle")]
+        [StringLength(200)]
+        public string? JobTitle { get; set; }
 
-        [Required]
-        [StringLength(100)]
-        [Display(Name = "Job Title")]
-        public string JobTitle { get; set; } = string.Empty;
+        [Column("Active")]
+        public int? Active { get; set; }
 
-        [Required]
-        [StringLength(50)]
-        [Display(Name = "First Name")]
-        public string FirstName { get; set; } = string.Empty;
+        [Column("Noupdate")]
+        public int? Noupdate { get; set; }
 
-        [Required]
-        [StringLength(50)]
-        [Display(Name = "Last Name")]
-        public string LastName { get; set; } = string.Empty;
+        // Computed/Mapped properties for compatibility with existing code
+        [NotMapped]
+        public string FirstName
+        {
+            get => Firstname ?? "";
+            set => Firstname = value;
+        }
+
+        [NotMapped]
+        public string LastName
+        {
+            get => Surname ?? "";
+            set => Surname = value;
+        }
+
+        [NotMapped]
+        public string Area
+        {
+            get => Department ?? "";
+            set => Department = value;
+        }
+
+        [NotMapped]
+        public string? ManagerEmail
+        {
+            get => Manager;
+            set => Manager = value;
+        }
+
+        [NotMapped]
+        public string StaffReference
+        {
+            get => Id.ToString().PadLeft(8, '0');
+            set { } // Empty setter for EF compatibility
+        }
 
         [Display(Name = "Full Name")]
         [NotMapped]
-        public string FullName => $"{FirstName} {LastName}";
+        public string FullName => $"{Firstname} {Surname}".Trim();
 
-        [Required]
-        public bool IsActive { get; set; } = true;
+        [NotMapped]
+        public bool IsActive
+        {
+            get => (Active ?? 0) != 0;
+            set => Active = value ? 1 : 0;
+        }
 
-        [Required]
+        [NotMapped]
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
+        [NotMapped]
         public DateTime? LastUpdated { get; set; }
+
+        // Google email computed property (@g.bdc.ac.uk)
+        [NotMapped]
+        public string? GoogleEmail
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Email)) return null;
+                // Convert @bdc.ac.uk to @g.bdc.ac.uk
+                if (Email.EndsWith("@bdc.ac.uk", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Email.Replace("@bdc.ac.uk", "@g.bdc.ac.uk", StringComparison.OrdinalIgnoreCase);
+                }
+                return Email;
+            }
+        }
 
         public override string ToString()
         {
-            return $"{FullName} ({StaffReference}) - {JobTitle}";
+            return $"{FullName} - {JobTitle}";
         }
     }
 }

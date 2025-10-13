@@ -31,10 +31,10 @@
 
     @if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
     {
-        <div class="alert alert-success mb-4">
+        <div class="alert alert-info mb-4">
             <h6><i class="bi bi-people me-2"></i>Collaborative Session</h6>
             <p class="mb-0">
-                Review the responses below. Click on rows with differences to create collaborative responses.
+                Focus on areas needing discussion (ratings of 3 or below). Click <strong>"Add Response"</strong> to document collaborative discussions and agreed actions. Items where both parties rated 4-5 stars are marked as positive and don't require a response unless you want to add one.
             </p>
         </div>
     }
@@ -87,24 +87,35 @@
                             string managerPillText = managerPillMatch.Success ? managerPillMatch.Groups[1].Value : "";
                             string managerCommentText = managerCommentMatch.Success ? managerCommentMatch.Groups[1].Value : "";
                             
-                            // Check for differences
-                            bool hasDifferences = (comparison.StaffRating ?? 0) != (comparison.ManagerRating ?? 0) || 
-                                                !string.Equals(staffPillText.Trim(), managerPillText.Trim(), StringComparison.OrdinalIgnoreCase);
-                                                
+                            // New logic: Check if response is needed based on ratings
+                            int staffRating = comparison.StaffRating ?? 0;
+                            int managerRating = comparison.ManagerRating ?? 0;
+
+                            // Requires discussion if either rating is 3 or below
+                            bool requiresDiscussion = staffRating <= 3 || managerRating <= 3;
+
+                            // Both positive (both > 3) - no response needed even if different
+                            bool bothPositive = staffRating > 3 && managerRating > 3;
+
+                            // Check for text differences
+                            bool hasTextDifferences = !string.Equals(staffPillText.Trim(), managerPillText.Trim(), StringComparison.OrdinalIgnoreCase);
+
                             bool hasCollaborativeResponse = comparison.CollaborativeRating.HasValue || !string.IsNullOrEmpty(comparison.CollaborativeResponse);
-                            
+
                             string rowClass = "";
                             if (Model.PDR.Status != InfoPoint.Models.PDRStatus.Completed)
                             {
                                 if (hasCollaborativeResponse)
                                     rowClass = "row-completed";
-                                else if (hasDifferences)
-                                    rowClass = "row-differences";
+                                else if (requiresDiscussion)
+                                    rowClass = "row-needs-discussion"; // Red/amber for low ratings
+                                else if (bothPositive)
+                                    rowClass = "row-agreement"; // Green for both positive
                                 else
-                                    rowClass = "row-agreement";
+                                    rowClass = "row-neutral";
                             }
                             
-                            <tr class="comparison-row @rowClass" data-question-id="@comparison.QuestionId" data-has-differences="@hasDifferences.ToString().ToLower()">
+                            <tr class="comparison-row @rowClass" data-question-id="@comparison.QuestionId" data-requires-discussion="@requiresDiscussion.ToString().ToLower()">
                                 <!-- Question Column -->
                                 <td class="question-cell">
                                     <div class="question-content">
@@ -129,31 +140,61 @@
                                                 <span class="rating-text">(@comparison.StaffRating.Value/5)</span>
                                             </div>
                                         }
-                                        
+
                                         @if (!string.IsNullOrEmpty(staffPillText))
                                         {
-                                            <div class="pills-compact">
-                                                @foreach (string pill in staffPillText.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)))
+                                            var staffPills = staffPillText.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
+                                            <div class="pills-compact truncatable">
+                                                <div class="truncate-content @(staffPills.Count > 1 ? "truncated" : "")">
+                                                    @foreach (string pill in staffPills)
+                                                    {
+                                                        <span class="pill-compact staff-pill">@pill</span>
+                                                    }
+                                                </div>
+                                                @if (staffPills.Count > 1)
                                                 {
-                                                    <span class="pill-compact staff-pill">@pill</span>
+                                                    <button class="btn-see-more" type="button">
+                                                        <span class="see-more-text"><i class="bi bi-chevron-down"></i> See More</span>
+                                                        <span class="see-less-text" style="display: none;"><i class="bi bi-chevron-up"></i> See Less</span>
+                                                    </button>
                                                 }
                                             </div>
                                         }
-                                        
+
                                         @if (!string.IsNullOrEmpty(staffCommentText))
                                         {
-                                            <div class="comment-compact">
-                                                <em>@staffCommentText</em>
+                                            <div class="comment-compact truncatable">
+                                                <div class="truncate-content @(staffCommentText.Length > 50 ? "truncated" : "")">
+                                                    <em>@staffCommentText</em>
+                                                </div>
+                                                @if (staffCommentText.Length > 50)
+                                                {
+                                                    <button class="btn-see-more" type="button">
+                                                        <span class="see-more-text"><i class="bi bi-chevron-down"></i> See More</span>
+                                                        <span class="see-less-text" style="display: none;"><i class="bi bi-chevron-up"></i> See Less</span>
+                                                    </button>
+                                                }
                                             </div>
                                         }
-                                        
+
                                         @if (string.IsNullOrEmpty(comparison.StaffResponse))
                                         {
                                             <em class="text-muted">No response</em>
                                         }
                                         else if (string.IsNullOrEmpty(staffPillText) && string.IsNullOrEmpty(staffCommentText))
                                         {
-                                            <div class="legacy-response">@comparison.StaffResponse</div>
+                                            <div class="legacy-response truncatable">
+                                                <div class="truncate-content @(comparison.StaffResponse.Length > 50 ? "truncated" : "")">
+                                                    @comparison.StaffResponse
+                                                </div>
+                                                @if (comparison.StaffResponse.Length > 50)
+                                                {
+                                                    <button class="btn-see-more" type="button">
+                                                        <span class="see-more-text"><i class="bi bi-chevron-down"></i> See More</span>
+                                                        <span class="see-less-text" style="display: none;"><i class="bi bi-chevron-up"></i> See Less</span>
+                                                    </button>
+                                                }
+                                            </div>
                                         }
                                     </div>
                                 </td>
@@ -171,31 +212,61 @@
                                                 <span class="rating-text">(@comparison.ManagerRating.Value/5)</span>
                                             </div>
                                         }
-                                        
+
                                         @if (!string.IsNullOrEmpty(managerPillText))
                                         {
-                                            <div class="pills-compact">
-                                                @foreach (string pill in managerPillText.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)))
+                                            var managerPills = managerPillText.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
+                                            <div class="pills-compact truncatable">
+                                                <div class="truncate-content @(managerPills.Count > 1 ? "truncated" : "")">
+                                                    @foreach (string pill in managerPills)
+                                                    {
+                                                        <span class="pill-compact manager-pill">@pill</span>
+                                                    }
+                                                </div>
+                                                @if (managerPills.Count > 1)
                                                 {
-                                                    <span class="pill-compact manager-pill">@pill</span>
+                                                    <button class="btn-see-more" type="button">
+                                                        <span class="see-more-text"><i class="bi bi-chevron-down"></i> See More</span>
+                                                        <span class="see-less-text" style="display: none;"><i class="bi bi-chevron-up"></i> See Less</span>
+                                                    </button>
                                                 }
                                             </div>
                                         }
-                                        
+
                                         @if (!string.IsNullOrEmpty(managerCommentText))
                                         {
-                                            <div class="comment-compact">
-                                                <em>@managerCommentText</em>
+                                            <div class="comment-compact truncatable">
+                                                <div class="truncate-content @(managerCommentText.Length > 50 ? "truncated" : "")">
+                                                    <em>@managerCommentText</em>
+                                                </div>
+                                                @if (managerCommentText.Length > 50)
+                                                {
+                                                    <button class="btn-see-more" type="button">
+                                                        <span class="see-more-text"><i class="bi bi-chevron-down"></i> See More</span>
+                                                        <span class="see-less-text" style="display: none;"><i class="bi bi-chevron-up"></i> See Less</span>
+                                                    </button>
+                                                }
                                             </div>
                                         }
-                                        
+
                                         @if (string.IsNullOrEmpty(comparison.ManagerResponse))
                                         {
                                             <em class="text-muted">No response</em>
                                         }
                                         else if (string.IsNullOrEmpty(managerPillText) && string.IsNullOrEmpty(managerCommentText))
                                         {
-                                            <div class="legacy-response">@comparison.ManagerResponse</div>
+                                            <div class="legacy-response truncatable">
+                                                <div class="truncate-content @(comparison.ManagerResponse.Length > 50 ? "truncated" : "")">
+                                                    @comparison.ManagerResponse
+                                                </div>
+                                                @if (comparison.ManagerResponse.Length > 50)
+                                                {
+                                                    <button class="btn-see-more" type="button">
+                                                        <span class="see-more-text"><i class="bi bi-chevron-down"></i> See More</span>
+                                                        <span class="see-less-text" style="display: none;"><i class="bi bi-chevron-up"></i> See Less</span>
+                                                    </button>
+                                                }
+                                            </div>
                                         }
                                     </div>
                                 </td>
@@ -217,31 +288,35 @@
                                                         <span class="rating-text">(@comparison.CollaborativeRating.Value/5)</span>
                                                     </div>
                                                 }
-                                                
+
                                                 @if (!string.IsNullOrEmpty(comparison.CollaborativeResponse))
                                                 {
                                                     <div class="collab-text">@comparison.CollaborativeResponse</div>
                                                 }
-                                                
+
                                                 <button type="button" class="btn btn-sm btn-outline-primary mt-2 edit-collab-btn" data-question-id="@comparison.QuestionId">
                                                     <i class="bi bi-pencil me-1"></i>Edit
                                                 </button>
                                             </div>
                                         }
-                                        else if (hasDifferences)
+                                        else if (requiresDiscussion)
                                         {
-                                            <button type="button" class="btn btn-warning btn-sm resolve-btn" data-question-id="@comparison.QuestionId">
-                                                <i class="bi bi-exclamation-triangle me-1"></i>Resolve Difference
+                                            <button type="button" class="btn btn-warning btn-sm add-response-btn" data-question-id="@comparison.QuestionId">
+                                                <i class="bi bi-chat-dots me-1"></i>Add Response
                                             </button>
                                         }
-                                        else
+                                        else if (bothPositive)
                                         {
                                             <div class="agreement-status">
                                                 <i class="bi bi-check-circle text-success me-1"></i>
-                                                <span class="text-success">In Agreement</span>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 add-collab-btn" data-question-id="@comparison.QuestionId">
-                                                    <i class="bi bi-plus me-1"></i>Add Response
-                                                </button>
+                                                <span class="text-success">Both Positive</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="neutral-status">
+                                                <i class="bi bi-dash-circle text-muted me-1"></i>
+                                                <span class="text-muted">No response needed</span>
                                             </div>
                                         }
                                     }
@@ -394,6 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     initializeTableInteractions();
     initializeModal();
+    initializeSeeMoreButtons();
     
     // Enhancement confirmation dialog function
     function showEnhancementConfirmation(originalText, enhancedText, callback) {
@@ -462,22 +538,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initializeTableInteractions() {
-        // Handle resolve difference buttons
-        document.querySelectorAll('.resolve-btn').forEach(btn => {
+        // Handle add response buttons (for low ratings)
+        document.querySelectorAll('.add-response-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const questionId = this.dataset.questionId;
                 openCollabModal(questionId);
             });
         });
-        
-        // Handle add response buttons (for agreements)
-        document.querySelectorAll('.add-collab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const questionId = this.dataset.questionId;
-                openCollabModal(questionId);
-            });
-        });
-        
+
         // Handle edit response buttons
         document.querySelectorAll('.edit-collab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -486,7 +554,35 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-    
+
+    function initializeSeeMoreButtons() {
+        document.querySelectorAll('.btn-see-more').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const container = this.closest('.truncatable');
+                const content = container.querySelector('.truncate-content');
+                const seeMoreText = this.querySelector('.see-more-text');
+                const seeLessText = this.querySelector('.see-less-text');
+
+                if (content.classList.contains('truncated')) {
+                    // Expand
+                    content.classList.remove('truncated');
+                    content.classList.add('expanded');
+                    seeMoreText.style.display = 'none';
+                    seeLessText.style.display = 'inline';
+                } else {
+                    // Collapse
+                    content.classList.add('truncated');
+                    content.classList.remove('expanded');
+                    seeMoreText.style.display = 'inline';
+                    seeLessText.style.display = 'none';
+                }
+            });
+        });
+    }
+
     function openCollabModal(questionId, isEditing = false) {
         currentQuestionId = questionId;
         const modal = new bootstrap.Modal(document.getElementById('collabModal'));
@@ -998,28 +1094,45 @@ document.addEventListener('DOMContentLoaded', function() {
     background: rgba(0, 133, 99, 0.02);
 }
 
-.row-differences {
-    background: rgba(255, 193, 7, 0.1);
-    border-left: 4px solid #ffc107;
+/* Row that needs discussion (ratings <= 3) */
+.row-needs-discussion {
+    background: rgba(220, 53, 69, 0.08);
+    border-left: 4px solid #dc3545;
 }
 
-.row-differences:hover {
-    background: rgba(255, 193, 7, 0.15);
+.row-needs-discussion:hover {
+    background: rgba(220, 53, 69, 0.12);
 }
 
+/* Row with both positive ratings (both > 3) */
 .row-agreement {
     background: rgba(40, 167, 69, 0.05);
     border-left: 4px solid var(--brand-primary);
 }
 
+.row-agreement:hover {
+    background: rgba(40, 167, 69, 0.08);
+}
+
+/* Row with neutral/no ratings */
+.row-neutral {
+    background: rgba(108, 117, 125, 0.03);
+    border-left: 4px solid #e9ecef;
+}
+
+.row-neutral:hover {
+    background: rgba(108, 117, 125, 0.05);
+}
+
+/* Row with completed collaborative response */
 .row-completed {
     background: rgba(108, 117, 125, 0.05);
     border-left: 4px solid #6c757d;
 }
 
-/* Table Cells */
+/* Table Cells - More Compact */
 .question-cell, .response-cell {
-    padding: 1.5rem 1rem;
+    padding: 0.75rem 0.75rem;
     vertical-align: top;
     border: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
@@ -1031,24 +1144,84 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .question-content strong {
     color: var(--brand-secondary);
-    font-size: 0.95rem;
-    line-height: 1.4;
+    font-size: 0.85rem;
+    line-height: 1.3;
+}
+
+.question-content small {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
 }
 
 /* Response Content in Table */
 .response-content-table {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+}
+
+/* Truncation and See More */
+.truncatable {
+    position: relative;
+}
+
+.truncate-content.truncated {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    position: relative;
+}
+
+.truncate-content.expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+}
+
+/* Pills truncation - show only first 2 by default */
+.pills-compact.truncatable .truncate-content.truncated {
+    display: flex;
+    flex-wrap: wrap;
+    max-height: 30px;
+    overflow: hidden;
+}
+
+.pills-compact.truncatable .truncate-content.expanded {
+    max-height: none;
+}
+
+.btn-see-more {
+    background: none;
+    border: none;
+    color: var(--brand-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.35rem 0;
+    margin-top: 0.25rem;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+    display: block;
+    width: 100%;
+    text-align: left;
+}
+
+.btn-see-more:hover {
+    color: var(--brand-primary-light);
+}
+
+.btn-see-more i {
+    font-size: 0.7rem;
+    margin-left: 0.25rem;
 }
 
 .rating-display {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
 }
 
 .star-tiny {
-    font-size: 14px;
+    font-size: 12px;
     color: #e0e6ed;
 }
 
@@ -1057,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .rating-text {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: #6c757d;
     font-weight: 500;
 }
@@ -1066,13 +1239,13 @@ document.addEventListener('DOMContentLoaded', function() {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
 }
 
 .pill-compact {
-    padding: 0.15rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
     font-weight: 500;
     color: white;
 }
@@ -1086,16 +1259,17 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .comment-compact {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #6c757d;
-    padding: 0.5rem;
+    padding: 0.4rem;
     background: rgba(248, 249, 250, 0.8);
     border-radius: 6px;
-    margin-top: 0.5rem;
+    margin-top: 0.35rem;
+    line-height: 1.4;
 }
 
 .legacy-response {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #495057;
     line-height: 1.4;
 }
@@ -1126,17 +1300,26 @@ document.addEventListener('DOMContentLoaded', function() {
     gap: 0.5rem;
 }
 
-.resolve-btn {
+.add-response-btn {
     background: #ffc107;
     border-color: #ffc107;
     color: #212529;
     font-weight: 500;
 }
 
-.resolve-btn:hover {
+.add-response-btn:hover {
     background: #e0a800;
     border-color: #d39e00;
     transform: translateY(-1px);
+}
+
+.agreement-status, .neutral-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
 /* Modal Styles */

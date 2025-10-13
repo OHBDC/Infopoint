@@ -11,7 +11,25 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => {
+            sqlOptions.CommandTimeout(120); // 2 minutes timeout for long queries
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null);
+        }));
+
+// Add Ulive database context (for card tokens, etc.)
+builder.Services.AddDbContext<UliveDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("UliveConnection"),
+        sqlOptions => {
+            sqlOptions.CommandTimeout(120); // 2 minutes timeout for long queries
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null);
+        }));
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -85,15 +103,17 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Seed the database
+// Seed the database (only HR user for now - other tables need to be created first)
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    var pdrService = scope.ServiceProvider.GetRequiredService<IPDRService>();
-    context.Database.EnsureCreated();
-    await StaffSeeder.SeedAsync(context);
-    await pdrService.SeedQuestionsAsync();
-    await PDRSeeder.SeedAsync(context);
+    // var pdrService = scope.ServiceProvider.GetRequiredService<IPDRService>();
+    // Don't use EnsureCreated with migrations - use migrations instead
+    // context.Database.EnsureCreated();
+    // await StaffSeeder.SeedAsync(context); // Skip - Staff table already exists in SQL Server
+    // await pdrService.SeedQuestionsAsync(); // Skip - PDRQuestions table needs to be created first
+    // await PDRSeeder.SeedAsync(context); // Skip for now - will fail without staff
+    await HRSeeder.SeedAsync(context);
 }
 
 app.Run();

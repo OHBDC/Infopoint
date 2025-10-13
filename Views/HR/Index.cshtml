@@ -1,0 +1,646 @@
+@model IEnumerable<InfoPoint.Models.StaffHR>
+
+@{
+    ViewData["Title"] = "HR Staff Management";
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-4">HR Staff Management</h1>
+            <p class="lead">Manage organizational hierarchy and staff information</p>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Metrics Dashboard -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Staff</h5>
+                    <h2 class="text-primary" id="metric-total">@ViewBag.TotalStaff</h2>
+                    <small class="text-muted">
+                        Active: <span id="metric-active">@ViewBag.ActiveStaff</span> | Inactive: <span id="metric-inactive">@ViewBag.InactiveStaff</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="?problemFilter=all-problems" class="text-decoration-none text-danger">
+                            All Problems
+                        </a>
+                    </h5>
+                    <h2 class="text-danger" id="metric-all-problems">@ViewBag.TotalProblems</h2>
+                    <small class="text-muted">Click to filter</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h5 class="card-title">In AD Only</h5>
+                    <h2 class="text-success">@ViewBag.ADOnlyCount</h2>
+                    <small class="text-muted">Not in HR list</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h5 class="card-title">AD Issues</h5>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <a href="?problemFilter=not-in-ad" class="text-decoration-none">
+                                <span class="badge bg-danger" id="metric-not-in-ad">@ViewBag.NotInAD</span> Not in AD
+                            </a>
+                        </div>
+                        <div>
+                            <a href="?problemFilter=ad-inactive" class="text-decoration-none">
+                                <span class="badge bg-warning text-dark" id="metric-ad-inactive">@ViewBag.InADButInactive</span> Inactive
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h5 class="card-title">Manager Issues</h5>
+                    <div>
+                        <a href="?problemFilter=no-manager" class="text-decoration-none d-block mb-1">
+                            <span class="badge bg-secondary" id="metric-no-manager">@ViewBag.NoManager</span> No Manager
+                        </a>
+                        <a href="?problemFilter=manager-not-in-ad" class="text-decoration-none d-block mb-1">
+                            <span class="badge bg-danger" id="metric-manager-not-in-ad">@ViewBag.ManagerNotInAD</span> Mgr Not in AD
+                        </a>
+                        <a href="?problemFilter=manager-inactive" class="text-decoration-none d-block">
+                            <span class="badge bg-warning text-dark" id="metric-manager-inactive">@ViewBag.ManagerInactive</span> Mgr Inactive
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-3">
+        <div class="col">
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add New Staff Member
+            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bulkImportModal">
+                <i class="bi bi-upload"></i> Bulk Import
+            </button>
+            <a asp-action="DepartmentAnalysis" class="btn btn-warning">
+                <i class="bi bi-search"></i> Department Analysis
+            </a>
+            @if (!string.IsNullOrEmpty(ViewBag.ProblemFilter))
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Clear Filters
+                </a>
+            }
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3" id="filterForm">
+                <div class="col-md-3">
+                    <label for="searchTerm" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="searchTerm" placeholder="Name, ID, or Job Title">
+                </div>
+                <div class="col-md-2">
+                    <label for="contractType" class="form-label">Contract Type</label>
+                    <select class="form-select" id="contractType">
+                        <option value="">All</option>
+                        @foreach (var type in (List<string>)ViewBag.ContractTypes)
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="department" class="form-label">Department</label>
+                    <select class="form-select" id="department">
+                        <option value="">All</option>
+                        @foreach (var dept in (List<string>)ViewBag.Departments)
+                        {
+                            <option value="@dept">@dept</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="problemFilter" class="form-label">Problem Filter</label>
+                    <select class="form-select" id="problemFilter">
+                        <option value="">No Filter</option>
+                        @if (ViewBag.TotalProblems > 0)
+                        {
+                            <option value="all-problems">All Problems (@ViewBag.TotalProblems)</option>
+                        }
+                        @if (ViewBag.NotInAD > 0)
+                        {
+                            <option value="not-in-ad">Not in AD (@ViewBag.NotInAD)</option>
+                        }
+                        @if (ViewBag.InADButInactive > 0)
+                        {
+                            <option value="ad-inactive">AD Inactive (@ViewBag.InADButInactive)</option>
+                        }
+                        @if (ViewBag.ManagerNotInAD > 0)
+                        {
+                            <option value="manager-not-in-ad">Manager Not in AD (@ViewBag.ManagerNotInAD)</option>
+                        }
+                        @if (ViewBag.ManagerInactive > 0)
+                        {
+                            <option value="manager-inactive">Manager Inactive (@ViewBag.ManagerInactive)</option>
+                        }
+                        @if (ViewBag.NoManager > 0)
+                        {
+                            <option value="no-manager">No Manager (@ViewBag.NoManager)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="showInactive">
+                        <label class="form-check-label" for="showInactive">
+                            Show Inactive
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Emp No.</th>
+                            <th>Full Name</th>
+                            <th>Job Title</th>
+                            <th>Contract Type</th>
+                            <th>Department</th>
+                            <th>Manager</th>
+                            <th>Card Tokens</th>
+                            <th>AD Status</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffTableBody">
+                        @foreach (var staff in Model)
+                        {
+                            var hasProblems = staff.StaffAD == null ||
+                                            (staff.StaffAD != null && !staff.StaffAD.IsActive) ||
+                                            (staff.ManagerEmployeeNumber.HasValue && staff.ManagerAD == null) ||
+                                            (staff.ManagerAD != null && !staff.ManagerAD.IsActive) ||
+                                            !staff.ManagerEmployeeNumber.HasValue ||
+                                            string.IsNullOrEmpty(staff.ManagerName);
+
+                            <tr class="staff-row"
+                                data-employee-number="@staff.EmployeeNumber"
+                                data-full-name="@staff.FullName.ToLower()"
+                                data-job-title="@staff.JobTitle.ToLower()"
+                                data-contract-type="@staff.ContractType"
+                                data-department-1="@(staff.HierarchyLevel1 ?? "")"
+                                data-department-2="@(staff.HierarchyLevel2 ?? "")"
+                                data-department-3="@(staff.HierarchyLevel3 ?? "")"
+                                data-department-4="@(staff.HierarchyLevel4 ?? "")"
+                                data-department-5="@(staff.HierarchyLevel5 ?? "")"
+                                data-is-active="@staff.IsActive.ToString().ToLower()"
+                                data-not-in-ad="@(staff.StaffAD == null ? "true" : "false")"
+                                data-ad-inactive="@(staff.StaffAD != null && !staff.StaffAD.IsActive ? "true" : "false")"
+                                data-manager-not-in-ad="@(staff.ManagerEmployeeNumber.HasValue && staff.ManagerAD == null ? "true" : "false")"
+                                data-manager-inactive="@(staff.ManagerAD != null && !staff.ManagerAD.IsActive ? "true" : "false")"
+                                data-no-manager="@(!staff.ManagerEmployeeNumber.HasValue || string.IsNullOrEmpty(staff.ManagerName) ? "true" : "false")"
+                                data-has-problems="@(hasProblems ? "true" : "false")">
+                                <td>@staff.EmployeeNumber</td>
+                                <td>
+                                    <strong>@staff.FullName</strong>
+                                    @if (staff.StaffAD != null)
+                                    {
+                                        <br />
+                                        <small class="text-muted">@staff.StaffAD.Email</small>
+                                    }
+                                </td>
+                                <td>@staff.JobTitle</td>
+                                <td>
+                                    <span class="badge bg-secondary">@staff.ContractType</span>
+                                </td>
+                                <td>
+                                    @{
+                                        // Show the most specific (deepest) hierarchy level
+                                        var deepestLevel = !string.IsNullOrEmpty(staff.HierarchyLevel5) ? staff.HierarchyLevel5 :
+                                                          !string.IsNullOrEmpty(staff.HierarchyLevel4) ? staff.HierarchyLevel4 :
+                                                          !string.IsNullOrEmpty(staff.HierarchyLevel3) ? staff.HierarchyLevel3 :
+                                                          !string.IsNullOrEmpty(staff.HierarchyLevel2) ? staff.HierarchyLevel2 :
+                                                          staff.HierarchyLevel1;
+
+                                        // Show parent level if available (one level up)
+                                        var parentLevel = !string.IsNullOrEmpty(staff.HierarchyLevel5) ? staff.HierarchyLevel4 :
+                                                         !string.IsNullOrEmpty(staff.HierarchyLevel4) ? staff.HierarchyLevel3 :
+                                                         !string.IsNullOrEmpty(staff.HierarchyLevel3) ? staff.HierarchyLevel2 :
+                                                         !string.IsNullOrEmpty(staff.HierarchyLevel2) ? staff.HierarchyLevel1 :
+                                                         null;
+                                    }
+                                    @if (!string.IsNullOrEmpty(parentLevel))
+                                    {
+                                        <small class="text-muted">@parentLevel</small>
+                                        <br />
+                                    }
+                                    @if (!string.IsNullOrEmpty(deepestLevel))
+                                    {
+                                        <small><strong>@deepestLevel</strong></small>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(staff.ManagerName))
+                                    {
+                                        <small>@staff.ManagerName</small>
+                                        @if (staff.ManagerEmployeeNumber.HasValue)
+                                        {
+                                            <br /><small class="text-muted">(#@staff.ManagerEmployeeNumber)</small>
+                                        }
+                                        <br />
+                                        @if (staff.ManagerAD != null)
+                                        {
+                                            @if (staff.ManagerAD.IsActive)
+                                            {
+                                                <span class="badge bg-success" title="Manager is active in AD">AD: Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark" title="Manager is inactive in AD">AD: Inactive</span>
+                                            }
+                                        }
+                                        else if (staff.ManagerEmployeeNumber.HasValue)
+                                        {
+                                            <span class="badge bg-danger" title="Manager not found in AD">Not in AD</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No manager</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (staff.CardTokens != null && staff.CardTokens.Any())
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var token in staff.CardTokens)
+                                            {
+                                                <span class="badge bg-info text-dark" title="Card Token">
+                                                    <i class="bi bi-credit-card"></i> @token.FormattedCardNumber
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No tokens</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (staff.StaffAD != null)
+                                    {
+                                        @if (staff.StaffAD.IsActive)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning">Inactive</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Not in AD</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (staff.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Details" asp-route-id="@staff.Id" class="btn btn-sm btn-info" title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@staff.Id" class="btn btn-sm btn-warning" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@staff.Id" class="btn btn-sm btn-danger" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (!Model.Any())
+                {
+                    <div class="text-center py-4">
+                        <p class="text-muted">No staff members found.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- AD Only Staff Section -->
+    @if (ViewBag.ADOnlyStaff != null && ((List<InfoPoint.Models.Staff>)ViewBag.ADOnlyStaff).Any())
+    {
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-plus"></i> Staff in Active Directory (Not in HR List)
+                    <span class="badge bg-light text-success">@ViewBag.ADOnlyCount</span>
+                </h5>
+                <small>These staff members are active in AD but haven't been added to the HR management system yet.</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Emp No.</th>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Job Title</th>
+                                <th>Department</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var adStaff in (List<InfoPoint.Models.Staff>)ViewBag.ADOnlyStaff)
+                            {
+                                <tr>
+                                    <td>@adStaff.Id</td>
+                                    <td><strong>@adStaff.FullName</strong></td>
+                                    <td><small>@adStaff.Email</small></td>
+                                    <td>@adStaff.JobTitle</td>
+                                    <td>@adStaff.Department</td>
+                                    <td>
+                                        <form method="post" asp-action="QuickAddFromAD" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="employeeNumber" value="@adStaff.Id" />
+                                            <button type="submit" class="btn btn-sm btn-success" title="Add to HR List">
+                                                <i class="bi bi-plus-circle"></i> Add to HR
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Bulk Import Modal -->
+<div class="modal fade" id="bulkImportModal" tabindex="-1" aria-labelledby="bulkImportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-action="BulkImport" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bulkImportModalLabel">Bulk Import Staff Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select CSV or JSON File</label>
+                        <input class="form-control" type="file" id="file" name="file" accept=".csv,.json" required>
+                        <div class="form-text">Accepted formats: .csv, .json</div>
+                    </div>
+                    <div class="alert alert-info">
+                        <strong>CSV Format (easiest):</strong>
+                        <p class="mb-1 small">Open your Excel file and save as CSV. The file should have these columns (in order):</p>
+                        <ol class="mb-0 small">
+                            <li>Emp No.</li>
+                            <li>Full Name</li>
+                            <li>Hier Lvl1</li>
+                            <li>Hier Lvl2</li>
+                            <li>Hier Lvl3</li>
+                            <li>Hier Lvl4</li>
+                            <li>Hier Lvl5</li>
+                            <li>Post LDesc (Job Title)</li>
+                            <li>Contract type</li>
+                            <li>Man Employee Number</li>
+                            <li>Man Name</li>
+                        </ol>
+                        <p class="mt-2 mb-0 small"><strong>Note:</strong> Row 1 should contain headers, data starts from row 2.</p>
+                    </div>
+                    <div class="alert alert-success">
+                        <strong>💡 Tip:</strong> In Excel, go to <strong>File → Save As</strong> and choose <strong>CSV (Comma delimited)</strong> as the file type.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Client-side instant filtering
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchTerm');
+        const contractTypeSelect = document.getElementById('contractType');
+        const departmentSelect = document.getElementById('department');
+        const problemFilterSelect = document.getElementById('problemFilter');
+        const showInactiveCheckbox = document.getElementById('showInactive');
+        const allRows = document.querySelectorAll('.staff-row');
+
+        // Debounce function for search input
+        let searchTimeout;
+        function debounceSearch(func, delay) {
+            return function(...args) {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        // Main filter function
+        function filterTable() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const contractType = contractTypeSelect.value;
+            const department = departmentSelect.value;
+            const problemFilter = problemFilterSelect.value;
+            const showInactive = showInactiveCheckbox.checked;
+
+            let visibleCount = 0;
+
+            allRows.forEach(function(row) {
+                let visible = true;
+
+                // Search filter
+                if (searchTerm) {
+                    const fullName = row.dataset.fullName || '';
+                    const jobTitle = row.dataset.jobTitle || '';
+                    const empNumber = row.dataset.employeeNumber || '';
+
+                    if (!fullName.includes(searchTerm) &&
+                        !jobTitle.includes(searchTerm) &&
+                        !empNumber.includes(searchTerm)) {
+                        visible = false;
+                    }
+                }
+
+                // Contract type filter
+                if (contractType && row.dataset.contractType !== contractType) {
+                    visible = false;
+                }
+
+                // Department filter - check all 5 hierarchy levels
+                if (department) {
+                    const dept1 = row.getAttribute('data-department-1') || '';
+                    const dept2 = row.getAttribute('data-department-2') || '';
+                    const dept3 = row.getAttribute('data-department-3') || '';
+                    const dept4 = row.getAttribute('data-department-4') || '';
+                    const dept5 = row.getAttribute('data-department-5') || '';
+
+                    if (dept1 !== department &&
+                        dept2 !== department &&
+                        dept3 !== department &&
+                        dept4 !== department &&
+                        dept5 !== department) {
+                        visible = false;
+                    }
+                }
+
+                // Active/Inactive filter
+                if (!showInactive && row.dataset.isActive === 'false') {
+                    visible = false;
+                }
+
+                // Problem filter
+                if (problemFilter) {
+                    switch(problemFilter) {
+                        case 'all-problems':
+                            if (row.dataset.hasProblems !== 'true') visible = false;
+                            break;
+                        case 'not-in-ad':
+                            if (row.dataset.notInAd !== 'true') visible = false;
+                            break;
+                        case 'ad-inactive':
+                            if (row.dataset.adInactive !== 'true') visible = false;
+                            break;
+                        case 'manager-not-in-ad':
+                            if (row.dataset.managerNotInAd !== 'true') visible = false;
+                            break;
+                        case 'manager-inactive':
+                            if (row.dataset.managerInactive !== 'true') visible = false;
+                            break;
+                        case 'no-manager':
+                            if (row.dataset.noManager !== 'true') visible = false;
+                            break;
+                    }
+                }
+
+                // Show/hide row
+                if (visible) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Recalculate metrics based on visible rows
+            updateMetrics();
+        }
+
+        function updateMetrics() {
+            const visibleRows = Array.from(allRows).filter(row => row.style.display !== 'none');
+
+            const total = visibleRows.length;
+            const active = visibleRows.filter(row => row.dataset.isActive === 'true').length;
+            const inactive = visibleRows.filter(row => row.dataset.isActive === 'false').length;
+            const notInAd = visibleRows.filter(row => row.dataset.notInAd === 'true').length;
+            const adInactive = visibleRows.filter(row => row.dataset.adInactive === 'true').length;
+            const managerNotInAd = visibleRows.filter(row => row.dataset.managerNotInAd === 'true').length;
+            const managerInactive = visibleRows.filter(row => row.dataset.managerInactive === 'true').length;
+            const noManager = visibleRows.filter(row => row.dataset.noManager === 'true').length;
+            const allProblems = visibleRows.filter(row => row.dataset.hasProblems === 'true').length;
+
+            // Update metric displays
+            document.getElementById('metric-total').textContent = total;
+            document.getElementById('metric-active').textContent = active;
+            document.getElementById('metric-inactive').textContent = inactive;
+            document.getElementById('metric-not-in-ad').textContent = notInAd;
+            document.getElementById('metric-ad-inactive').textContent = adInactive;
+            document.getElementById('metric-manager-not-in-ad').textContent = managerNotInAd;
+            document.getElementById('metric-manager-inactive').textContent = managerInactive;
+            document.getElementById('metric-no-manager').textContent = noManager;
+            document.getElementById('metric-all-problems').textContent = allProblems;
+        }
+
+        // Attach event listeners with debounce for search
+        searchInput.addEventListener('input', debounceSearch(filterTable, 300));
+
+        // Instant filter on dropdown/checkbox changes
+        contractTypeSelect.addEventListener('change', filterTable);
+        departmentSelect.addEventListener('change', filterTable);
+        problemFilterSelect.addEventListener('change', filterTable);
+        showInactiveCheckbox.addEventListener('change', filterTable);
+
+        // Handle metric card clicks
+        document.querySelectorAll('[href^="?problemFilter"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const url = new URL(this.href);
+                const problemFilter = url.searchParams.get('problemFilter');
+
+                // Update the select dropdown
+                problemFilterSelect.value = problemFilter || '';
+
+                // Apply filter
+                filterTable();
+            });
+        });
+
+        // Initial filter application (in case URL has params or defaults)
+        filterTable();
+    });
+</script>
+}
+
